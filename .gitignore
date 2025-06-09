@@ -40,3 +40,5 @@ __results__/
 outputs/
 checkpoints/
 tmp/
+
+sleepstages_pipeline.egg-info

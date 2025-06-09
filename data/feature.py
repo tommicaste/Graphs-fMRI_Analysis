@@ -1,10 +1,12 @@
 from torch_geometric.data import Data
+from tqdm.auto import tqdm
 
-def feature_corr(data_list):
+def feature_corr(data_list, verbose: bool = True):
     """
     Move connectivity matrix to metadata and use it as node features.
     """
-    for d in data_list:
+    iterator = tqdm(data_list, desc="feature_corr", disable=not verbose)
+    for d in iterator:
         d.x = d.c
         d.metadata['c'] = d.c
         delattr(d, 'c')
@@ -16,4 +18,3 @@ def feature_corr(data_list):
         assert set(d.keys()).issubset({'x', 'edge_index', 'metadata', 'y'}), \
             f"Unexpected attributes {set(d.keys())} in Data object"
     return data_list
-

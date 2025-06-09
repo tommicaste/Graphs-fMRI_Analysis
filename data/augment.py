@@ -6,6 +6,8 @@ import torch
 import numpy as np
 from collections import defaultdict
 from torch_geometric.data import Data
+from tqdm import tqdm
+
 
 def augment_upsample(data_list, proportion=0.5, random_state=23):
     """
@@ -47,85 +49,121 @@ def augment_upsample(data_list, proportion=0.5, random_state=23):
     # Return combined list (originals + synthetic upsamples)
     return data_list + augmented
 
-def augment_interpolate(data_list, proportion=1.0, random_state=42):
+def augment_interpolate(
+    data_list,
+    proportion: float = 1.0,
+    random_state: int = 23,
+    verbose: bool = True,
+):
     """
-    Linearly interpolate between consecutive training samples to balance classes by a given proportion, ensuring all matrices remain valid.
+    Interpolate between consecutive training samples to balance classes
+    by `proportion` × (size of largest class).
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
-    # mark originals as non-synthetic and validate input tensors
-    for d in data_list:
-        assert torch.is_tensor(d.c), "c must be a tensor"
-        assert torch.is_tensor(d.y), "y must be a tensor"
-        assert torch.isfinite(d.c).all(), f"Non-finite values in c for sample {d.metadata}"
-        assert (d.c != 0).all(), f"Zero values found in c for sample {d.metadata}"
-        d.metadata['synthetic'] = False
+   
+    # Mark originals as non-synthetic and sanity-check tensors
 
-    # collect all training samples grouped by class
+    for d in data_list:
+        assert torch.is_tensor(d.c) and torch.is_tensor(d.y)
+        assert torch.isfinite(d.c).all(), f"NaNs in c for {d.metadata}"
+        assert (d.c != 0).all(),          f"Zeros in c for {d.metadata}"
+        d.metadata["synthetic"] = False
+
+
+    # Group training samples by class (and by patient)
+
     train_by_class = defaultdict(list)
     for d in data_list:
-        if d.metadata.get('split') == 'train':
+        if d.metadata.get("split") == "train":
             train_by_class[int(d.y.item())].append(d)
 
-    # determine how many synthetic samples each class requires
+
     real_counts = {cls: len(lst) for cls, lst in train_by_class.items()}
     max_count   = max(real_counts.values(), default=0)
     targets     = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # gather adjacent sample pairs (gaps) for each class
+
+    # Pre-compute patient-wise ordered gaps once, per class
+
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
         for d in examples:
-            by_patient[d.metadata['sample']].append(d)
+            by_patient[d.metadata["sample"]].append(d)
         pairs = []
         for seq in by_patient.values():
-            seq.sort(key=lambda d: d.metadata['segment'])
-            pairs.extend(zip(seq, seq[1:]))
+            seq.sort(key=lambda d: d.metadata["segment"])
+            pairs.extend(zip(seq, seq[1:]))  
         gaps_per_class[cls] = pairs
 
-    # ensure a symmetric, PSD connectivity matrix after interpolation
-    def project_to_psd(C):
+
+    # Helper: project matrix to symmetric, PSD, unit-diag correlation
+
+    def project_to_psd(C: torch.Tensor) -> torch.Tensor:
         C = (C + C.T) / 2
         eigvals, eigvecs = torch.linalg.eigh(C)
-        eigvals = torch.clamp(eigvals, min=0)
+        eigvals.clamp_(min=0)
         C_psd  = eigvecs @ torch.diag(eigvals) @ eigvecs.T
         D      = torch.sqrt(torch.diag(C_psd) + 1e-8)
         C_psd  = C_psd / D[:, None] / D[None, :]
         C_psd.fill_diagonal_(1.0)
-        C_psd  = C_psd.clamp(-1, 1)
-        assert torch.isfinite(C_psd).all(), "Interpolated C contains non-finite values"
-        assert (C_psd != 0).all(), "Interpolated C contains zero values"
-        return C_psd
+        return C_psd.clamp_(-1, 1)
+
+
+    # Main interpolation loop (now progress-tracked)
 
     synthetic_data = []
     random.seed(random_state)
 
-    # interpolate within each gap according to calculated quotas
-    for cls, need in synth_needs.items():
+    outer_iter = tqdm(
+        synth_needs.items(),
+        desc="⏩ classes",
+        disable=not verbose,
+        leave=False,
+    )
+
+    for cls, need in outer_iter:
         pairs = gaps_per_class.get(cls, [])
-        G = len(pairs)
-        if need <= 0 or G == 0:
+        if need == 0 or not pairs:
             continue
+
+        G = len(pairs)
         base, rem = divmod(need, G)
-        quotas = [base + (1 if i < rem else 0) for i in range(G)]
+        quotas = [base + (i < rem) for i in range(G)]
 
-        for (d1, d2), n_interp in zip(pairs, quotas):
-            if n_interp <= 0:
+        inner_iter = (
+            tqdm(
+                zip(pairs, quotas),
+                total=len(pairs),
+                desc=f"  ↳ class {cls}",
+                disable=not verbose,
+                leave=False,
+            )
+            if verbose
+            else zip(pairs, quotas)
+        )
+
+        for (d1, d2), n_interp in inner_iter:
+            if n_interp == 0:
                 continue
-            s1, s2 = d1.metadata['segment'], d2.metadata['segment']
-            for i in range(1, n_interp + 1):
-                alpha = i / (n_interp + 1)
-                C_interp = (1 - alpha) * d1.c + alpha * d2.c
-                C_psd    = project_to_psd(C_interp)
-                # carry over metadata and flag as synthetic
-                new = Data(
-                    y=d1.y.clone(),
-                    c=C_psd,
-                    metadata={**d1.metadata, 'segment': (1 - alpha) * s1 + alpha * s2, 'synthetic': True}
-                )
-                synthetic_data.append(new)
+            s1, s2 = d1.metadata["segment"], d2.metadata["segment"]
 
-    # return dataset augmented with interpolated samples
+            # vectorized alpha values → interpolate in one go
+            alphas = torch.linspace(1, n_interp, n_interp, device=d1.c.device) / (n_interp + 1)
+            Cs_interp = torch.stack([(1 - a) * d1.c + a * d2.c for a in alphas])
+
+            for alpha, C_interp in zip(alphas, Cs_interp):
+                new_d = Data(
+                    y=d1.y.clone(),
+                    c=project_to_psd(C_interp),
+                    metadata={
+                        **d1.metadata,
+                        "segment": (1 - alpha.item()) * s1 + alpha.item() * s2,
+                        "synthetic": True,
+                    },
+                )
+                synthetic_data.append(new_d)
+
     return data_list + synthetic_data

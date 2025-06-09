@@ -1,7 +1,8 @@
 import torch
 from functools import lru_cache
+from tqdm.auto import tqdm
 
-def add_edge_list(data_list, tsh: float = None, top: float = 0.10):
+def add_edge_list(data_list, tsh: float = None, top: float = 0.10, verbose: bool = True):
     """
     Add an edge_index to each Data in data_list by thresholding its c matrix (hard or top-percentile).
     """
@@ -26,7 +27,8 @@ def add_edge_list(data_list, tsh: float = None, top: float = 0.10):
 
         return torch.stack([j_sel, i_sel], dim=0)
 
-    for d in data_list:
+    iterator = tqdm(data_list, desc="add_edge_list", disable=not verbose)
+    for d in iterator:
         assert hasattr(d, 'c'), "Data object must have a 'c' attribute"
         edge_index = _process(d.c)
         d.edge_index = edge_index
