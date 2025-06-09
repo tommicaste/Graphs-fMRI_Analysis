@@ -5,17 +5,15 @@ def feature_corr(data_list):
     Move connectivity matrix to metadata and use it as node features.
     """
     for d in data_list:
-        # Set node features
         d.x = d.c
-        # Preserve original connectivity in metadata
         d.metadata['c'] = d.c
-        # Remove the original c attribute
         delattr(d, 'c')
-        # Drop any other graph attributes (e.g., labels)
-        for attr in list(d.keys):
-            if attr not in ('x', 'edge_index', 'metadata'):
+        for attr in list(d.keys()):
+            if attr not in ('x', 'edge_index', 'metadata', 'y'):
                 delattr(d, attr)
-        # Verify only the desired attributes remain
-        assert set(d.keys) == {'x', 'edge_index', 'metadata'}, \
-            f"Unexpected attributes {set(d.keys)} in Data object"
+        assert all(k in d for k in ('x', 'metadata', 'y')), \
+            f"Missing required attributes in Data object: {set(d.keys())}"
+        assert set(d.keys()).issubset({'x', 'edge_index', 'metadata', 'y'}), \
+            f"Unexpected attributes {set(d.keys())} in Data object"
     return data_list
+

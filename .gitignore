@@ -1,0 +1,42 @@
+# Ignore experiments (scripts, temp notebooks, etc.)
+experiments/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# VSCode or PyCharm configs
+.vscode/
+.idea/
+
+# Logs, outputs, weights
+*.log
+*.ckpt
+*.pt
+*.pth
+*.h5
+*.onnx
+wandb/
+lightning_logs/
+runs/
+
+# System crap
+.DS_Store
+Thumbs.db
+
+# Output dirs
+__results__/
+outputs/
+checkpoints/
+tmp/

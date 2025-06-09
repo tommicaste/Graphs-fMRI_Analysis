@@ -1,7 +1,6 @@
 import numpy as np
 import random
 from collections import defaultdict
-from augment import *
 
 def split_patient(data_list,
                   train_ratio=0.6,

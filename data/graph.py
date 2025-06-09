@@ -21,7 +21,7 @@ def add_edge_list(data_list, tsh: float = None, top: float = 0.10):
             _, idx = torch.topk(vals, k)
             i_sel, j_sel = i[idx], j[idx]
         else:
-            mask = vals.abs() >= tsh
+            mask = vals >= tsh
             i_sel, j_sel = i[mask], j[mask]
 
         return torch.stack([j_sel, i_sel], dim=0)
