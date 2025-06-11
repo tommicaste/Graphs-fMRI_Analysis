@@ -1,0 +1,30 @@
+seed: 23
+save_dir: first_run
+data:
+  path: /project2/cdonnat/sleepstages/data/pt/overlapping_data.pt
+  batch_size: 32
+  num_workers: 4
+  split: [0.6, 0.20, 0.20]
+  augment_cfg:
+    upsample:
+      proportion: 0.6 
+  edge_tsh: 0.20
+
+model:
+  architecture: gnn                      
+  params:
+    input_dim: 294
+    hidden_channels: 64
+    num_layers: 1
+    dropout: 0.5
+    num_classes: 4
+    mlp_hidden: [64, 32]
+    lr: 0.002279
+    gnn_layer: GCNConv
+
+trainer:
+  max_epochs: 50
+  accelerator: gpu
+  devices: 1
+  early_stop_patience: 25
+  log_every_n_steps: 5
