@@ -9,7 +9,7 @@ from torch_geometric.data import Data
 from tqdm import tqdm
 
 
-def augment_upsample(data_list, proportion=0.5, random_state=23):
+def augment_upsample(data_list, proportion=0.5):
     """
     Ensure each class in the training split has at least proportion * (size of the largest class) samples by upsampling underrepresented classes
     """
@@ -31,8 +31,6 @@ def augment_upsample(data_list, proportion=0.5, random_state=23):
     max_count = max(counts.values(), default=0)
     target    = int(max_count * proportion)
 
-    # Upsample each underrepresented class
-    random.seed(random_state)
     augmented = []
     for cls, examples in train_by_class.items():
         n_current = len(examples)
@@ -52,7 +50,6 @@ def augment_upsample(data_list, proportion=0.5, random_state=23):
 def augment_interpolate(
     data_list,
     proportion: float = 1.0,
-    random_state: int = 23,
     verbose: bool = True,
 ):
     """
@@ -62,7 +59,7 @@ def augment_interpolate(
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
    
-    # Mark originals as non-synthetic and sanity-check tensors
+    # Mark originals as non-synthetic 
 
     for d in data_list:
         assert torch.is_tensor(d.c) and torch.is_tensor(d.y)
@@ -71,7 +68,7 @@ def augment_interpolate(
         d.metadata["synthetic"] = False
 
 
-    # Group training samples by class (and by patient)
+    # Group training samples by class and by patient
 
     train_by_class = defaultdict(list)
     for d in data_list:
@@ -115,7 +112,6 @@ def augment_interpolate(
     # Main interpolation loop (now progress-tracked)
 
     synthetic_data = []
-    random.seed(random_state)
 
     outer_iter = tqdm(
         synth_needs.items(),

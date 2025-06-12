@@ -1,5 +1,6 @@
 seed: 23
 save_dir: first_run
+
 data:
   path: /project2/cdonnat/sleepstages/data/pt/overlapping_data.pt
   batch_size: 32
@@ -8,7 +9,11 @@ data:
   augment_cfg:
     upsample:
       proportion: 0.6 
-  edge_tsh: 0.20
+  edge:
+    tsh: None
+    top: 0.10
+  feauture:
+    type: corr
 
 model:
   architecture: gnn                      
