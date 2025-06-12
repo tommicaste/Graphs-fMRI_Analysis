@@ -9,6 +9,5 @@ __all__ = [
     "augment_interpolate",
     "feature_corr",
     "add_edge_list",
-    "split_patient",
-    "DataLoader",
+    "split_patient"
 ]
