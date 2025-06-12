@@ -5,8 +5,7 @@ from collections import defaultdict
 def split_patient(data_list,
                   train_ratio=0.6,
                   val_ratio=0.2,
-                  test_ratio=0.2,
-                  random_state=23):
+                  test_ratio=0.2):
     """
     Greedy stratified group split by patient, preserving class proportions and avoiding patient overlap.
     """
@@ -35,9 +34,6 @@ def split_patient(data_list,
         'test':  total_per_class * test_ratio,
     }
     running = {k: np.zeros(num_classes, dtype=float) for k in targets}
-
-    # Shuffle patients to break ordering bias
-    random.seed(random_state)
     random.shuffle(patients)
 
     # Greedy assignment: place each patient where they reduce class imbalance most
