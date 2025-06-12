@@ -3,6 +3,7 @@ import os, hashlib, torch
 from torch_geometric.loader import DataLoader
 from data.split import split_patient
 from data.augment import augment_upsample, augment_interpolate
+from data.feature import feature_corr
 
 def _cache_file(
     raw_path: str,
@@ -47,7 +48,7 @@ def load_data(
 
     if os.path.exists(cache_path):
         print(f"Loading cached dataset: {cache_path}")
-        train_data, val_data, test_data = torch.load(cache_path)
+        train_data, val_data, test_data = torch.load(cache_path, weights_only=False)
     else:
         # 2. load raw list[Data]
         dataset: List = torch.load(path, weights_only=False)
@@ -89,3 +90,4 @@ def load_data(
     test_loader  = DataLoader(test_data,  batch_size=batch_size, shuffle=False, num_workers=workers)
 
     return train_loader, val_loader, test_loader
+

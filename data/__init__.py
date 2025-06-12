@@ -2,7 +2,6 @@ from .augment import *
 from .feature import *
 from .graph import *
 from .split import *
-from .datamodule import *
 from .loader import *
 
 __all__ = [
