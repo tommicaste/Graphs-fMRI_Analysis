@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 import os, hashlib, torch
 from torch_geometric.loader import DataLoader
 from data.split import split_patient
@@ -34,9 +34,9 @@ def load_data(
     augment_strategy: Optional[str] = None,
     augment_proportion: Optional[float] = None,
     cache_root: str = "/scratch/midway3/tcastellani/sleepstages",
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
+) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, torch.Tensor]]:
     """
-    Load → (split, augment) → cache → return PyG DataLoaders.
+    Load → (split, augment) → cache → return PyG DataLoaders and weights.
     """
     # 1. validate split ratios
     if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
@@ -68,7 +68,7 @@ def load_data(
         # 4. augment if requested
         if augment_strategy:
             if augment_proportion is None:
-                pass
+                raise ValueError("augment_proportion must be provided with a strategy.")
             if augment_strategy == "upsample":
                 train_data = augment_upsample(train_data, proportion=augment_proportion)
             elif augment_strategy == "interpolate":
@@ -76,12 +76,22 @@ def load_data(
             elif augment_strategy == "geodesic":
                 train_data = augment_geodesic(train_data, proportion=augment_proportion)
             else:
-                raise ValueError("augment_strategy must be 'upsample' or 'interpolate'")
+                # Corrected this logic to be more robust
+                raise ValueError(f"Unknown augment_strategy: {augment_strategy}")
         print("Data augmented" if augment_strategy else "No augmentation")
 
         # 5. cache the processed split
         torch.save((train_data, val_data, test_data), cache_path)
         print(f"Cached dataset to {cache_path}")
+
+    # --- 2. ADD THE 3 LINES TO COMPUTE WEIGHTS ---
+    print("Calculating class weights...")
+    train_labels = torch.tensor([d.y.item() for d in train_data])
+    class_counts = torch.bincount(train_labels)
+    class_weights = (1.0 / class_counts.float()) / (1.0 / class_counts.float()).sum()
+    
+    results = {'class_weights': class_weights}
+    print(f"Class weights: {results['class_weights'].tolist()}")
 
     print(f"Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
 
@@ -90,5 +100,5 @@ def load_data(
     val_loader   = DataLoader(val_data,   batch_size=batch_size, shuffle=False, num_workers=workers)
     test_loader  = DataLoader(test_data,  batch_size=batch_size, shuffle=False, num_workers=workers)
 
-    return train_loader, val_loader, test_loader
-
+    # --- 3. EDIT THE RETURN STATEMENT ---
+    return train_loader, val_loader, test_loader, results

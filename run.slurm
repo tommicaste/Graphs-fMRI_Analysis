@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --account=pi-cdonnat
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=120G
+#SBATCH --mem=30G
 #SBATCH --time=06:00:00
 
 # Initialize conda and activate environment
@@ -14,4 +14,4 @@ source /home/tcastellani/miniconda3/etc/profile.d/conda.sh
 conda activate py11
 
 # Run your command
-python optuna_search.py --config config.yaml --trials 100
+python /home/tcastellani/sleepstages/augment_search.py

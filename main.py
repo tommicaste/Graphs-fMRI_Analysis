@@ -25,24 +25,28 @@ torch.cuda.manual_seed(SEED)
 
 # ───────────────────── data ─────────────────────
 augment_strategy="geodesic"
-augment_proportion=1
+augment_proportion=0.3
 
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
-train_loader, val_loader, test_loader = load_data(
+train_loader, val_loader, test_loader, weights= load_data(
     path, augment_strategy=augment_strategy, augment_proportion=augment_proportion
 )
 name = f"{augment_strategy}_{str(augment_proportion)}"
+
 # ───────────────────── model ────────────────────
 model = LightningGNN(
     input_dim=347,
     hidden_channels=64,
-    num_layers=2,
-    GNNLayer=SAGEConv ,
+    num_layers=3,
+    GNNLayer=SAGEConv,
     dropout=0.5,
     num_classes=4,
     mlp_hidden=[64, 32],
     lr=1e-3,
     edge_tsh=0,
+    loss_type='weighted_cross_entropy',
+    class_weights=weights['class_weights'],
+    residual_connections=True
 )
 
 # ──────────── NEW: run folder and checkpoint ────────────
@@ -51,8 +55,8 @@ save_dir.mkdir(parents=True, exist_ok=True)
 
 ckpt_cb = ModelCheckpoint(
     dirpath=save_dir / "checkpoints",
-    filename="epoch={epoch:02d}_val_bacc={val_bacc:.4f}",
-    monitor="val_bacc",
+    filename="epoch={epoch:02d}_val_acc={val_acc:.4f}",
+    monitor="val_acc",
     mode="max",
     save_top_k=1,
     save_last=True,
@@ -71,5 +75,5 @@ trainer = pl.Trainer(
 
 trainer.fit(model, train_loader, val_loader)
 
-# ──────────── test best on val_bacc ─────────────
+# ──────────── test best on val_acc ─────────────
 trainer.test(ckpt_path="best", dataloaders=test_loader)
