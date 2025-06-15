@@ -29,8 +29,8 @@ def add_edge_list(data_list, tsh: float = None, top: float = 0.10, verbose: bool
 
     iterator = tqdm(data_list, desc="add_edge_list", disable=not verbose)
     for d in iterator:
-        assert hasattr(d, 'c'), "Data object must have a 'c' attribute"
-        edge_index = _process(d.c)
+        assert hasattr(d, 'x'), "Data object must have a 'x' attribute"
+        edge_index = _process(d.x)
         d.edge_index = edge_index
 
     return data_list

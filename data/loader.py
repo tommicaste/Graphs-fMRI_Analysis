@@ -3,7 +3,6 @@ import os, hashlib, torch
 from torch_geometric.loader import DataLoader
 from data.split import split_patient
 from data.augment import augment_upsample, augment_interpolate
-from data.feature import feature_corr
 
 def _cache_file(
     raw_path: str,

@@ -1,1 +1,1 @@
-from .transforms import BatchNodeFeatureTransform, BatchEdgeListTransform
+from .transforms import BatchEdgeListTransform

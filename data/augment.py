@@ -58,32 +58,25 @@ def augment_interpolate(
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
-   
-    # Mark originals as non-synthetic 
-
+    # Mark originals as non synthetic
     for d in data_list:
-        assert torch.is_tensor(d.c) and torch.is_tensor(d.y)
-        assert torch.isfinite(d.c).all(), f"NaNs in c for {d.metadata}"
-        assert (d.c != 0).all(),          f"Zeros in c for {d.metadata}"
+        assert torch.is_tensor(d.x) and torch.is_tensor(d.y)
+        assert torch.isfinite(d.x).all(), f"NaNs in x for {d.metadata}"
+        assert (d.x != 0).all(),          f"Zeros in x for {d.metadata}"
         d.metadata["synthetic"] = False
 
-
     # Group training samples by class and by patient
-
     train_by_class = defaultdict(list)
     for d in data_list:
         if d.metadata.get("split") == "train":
             train_by_class[int(d.y.item())].append(d)
-
 
     real_counts = {cls: len(lst) for cls, lst in train_by_class.items()}
     max_count   = max(real_counts.values(), default=0)
     targets     = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-
-    # Pre-compute patient-wise ordered gaps once, per class
-
+    # Pre compute patient wise ordered gaps once, per class
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -92,12 +85,10 @@ def augment_interpolate(
         pairs = []
         for seq in by_patient.values():
             seq.sort(key=lambda d: d.metadata["segment"])
-            pairs.extend(zip(seq, seq[1:]))  
+            pairs.extend(zip(seq, seq[1:]))
         gaps_per_class[cls] = pairs
 
-
-    # Helper: project matrix to symmetric, PSD, unit-diag correlation
-
+    # Helper: project matrix to symmetric, PSD, unit diag correlation
     def project_to_psd(C: torch.Tensor) -> torch.Tensor:
         C = (C + C.T) / 2
         eigvals, eigvecs = torch.linalg.eigh(C)
@@ -108,11 +99,8 @@ def augment_interpolate(
         C_psd.fill_diagonal_(1.0)
         return C_psd.clamp_(-1, 1)
 
-
-    # Main interpolation loop (now progress-tracked)
-
+    # Main interpolation loop
     synthetic_data = []
-
     outer_iter = tqdm(
         synth_needs.items(),
         desc="⏩ classes",
@@ -147,13 +135,13 @@ def augment_interpolate(
             s1, s2 = d1.metadata["segment"], d2.metadata["segment"]
 
             # vectorized alpha values → interpolate in one go
-            alphas = torch.linspace(1, n_interp, n_interp, device=d1.c.device) / (n_interp + 1)
-            Cs_interp = torch.stack([(1 - a) * d1.c + a * d2.c for a in alphas])
+            alphas = torch.linspace(1, n_interp, n_interp, device=d1.x.device) / (n_interp + 1)
+            Cs_interp = torch.stack([(1 - a) * d1.x + a * d2.x for a in alphas])
 
             for alpha, C_interp in zip(alphas, Cs_interp):
                 new_d = Data(
                     y=d1.y.clone(),
-                    c=project_to_psd(C_interp),
+                    x=project_to_psd(C_interp),       
                     metadata={
                         **d1.metadata,
                         "segment": (1 - alpha.item()) * s1 + alpha.item() * s2,
@@ -163,3 +151,4 @@ def augment_interpolate(
                 synthetic_data.append(new_d)
 
     return data_list + synthetic_data
+
