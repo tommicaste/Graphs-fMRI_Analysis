@@ -31,11 +31,10 @@ def run_experiment(config: dict):
     """
     Runs a single training and testing experiment based on a configuration dictionary.
     """
-    # This function's internal print statements can be commented out for a cleaner tqdm bar
-    # print("─" * 80)
-    # print(f"🚀 STARTING RUN: {config['name']}")
-    # print(f"   Configuration: {config}")
-    # print("─" * 80)
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
 
     # 1. Load data with specified augmentation
     train_loader, val_loader, test_loader, data_info = load_data(
