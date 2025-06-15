@@ -4,6 +4,7 @@ logs/
 sleepstages_pipeline.egg-info
 *_run
 run_*/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

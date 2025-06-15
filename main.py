@@ -24,11 +24,14 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 
 # ───────────────────── data ─────────────────────
+augment_strategy="geodesic"
+augment_proportion=1
+
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
 train_loader, val_loader, test_loader = load_data(
-    path, augment_strategy="interpolate", augment_proportion=0.5
+    path, augment_strategy=augment_strategy, augment_proportion=augment_proportion
 )
-
+name = f"{augment_strategy}_{str(augment_proportion)}"
 # ───────────────────── model ────────────────────
 model = LightningGNN(
     input_dim=347,
@@ -43,7 +46,7 @@ model = LightningGNN(
 )
 
 # ──────────── NEW: run folder and checkpoint ────────────
-save_dir = Path("/home/tcastellani/sleepstages/upsample_run")  
+save_dir = Path(f"/home/tcastellani/sleepstages/run/{name}")  
 save_dir.mkdir(parents=True, exist_ok=True)
 
 ckpt_cb = ModelCheckpoint(

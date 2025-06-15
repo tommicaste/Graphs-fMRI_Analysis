@@ -2,7 +2,7 @@ from typing import List, Tuple, Optional
 import os, hashlib, torch
 from torch_geometric.loader import DataLoader
 from data.split import split_patient
-from data.augment import augment_upsample, augment_interpolate
+from data.augment import augment_upsample, augment_interpolate, augment_geodesic
 
 def _cache_file(
     raw_path: str,
@@ -73,6 +73,8 @@ def load_data(
                 train_data = augment_upsample(train_data, proportion=augment_proportion)
             elif augment_strategy == "interpolate":
                 train_data = augment_interpolate(train_data, proportion=augment_proportion)
+            elif augment_strategy == "geodesic":
+                train_data = augment_geodesic(train_data, proportion=augment_proportion)
             else:
                 raise ValueError("augment_strategy must be 'upsample' or 'interpolate'")
         print("Data augmented" if augment_strategy else "No augmentation")
