@@ -1,24 +1,40 @@
 from pathlib import Path
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import (
+    GCNConv,          # Graph Convolutional Network
+    SAGEConv,         # GraphSAGE
+    GATConv,          # Graph Attention Network
+    GATv2Conv,        # GAT v2
+    GINConv,          # Graph Isomorphism Network
+    ChebConv,         # Chebyshev Spectral GCN
+    TransformerConv   # Graph Transformer-style convolution
+)
 from data import *
 from static_models.gnn import LightningGNN
 import torch
+import random 
+import numpy as np
 
+SEED = 23
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
 
 # ───────────────────── data ─────────────────────
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
 train_loader, val_loader, test_loader = load_data(
-    path, augment_strategy="interpolate", augment_proportion=1
+    path, augment_strategy="interpolate", augment_proportion=0.5
 )
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
     input_dim=347,
     hidden_channels=64,
-    num_layers=1,
-    GNNLayer=GCNConv,
+    num_layers=2,
+    GNNLayer=SAGEConv ,
     dropout=0.5,
     num_classes=4,
     mlp_hidden=[64, 32],
@@ -27,7 +43,7 @@ model = LightningGNN(
 )
 
 # ──────────── NEW: run folder and checkpoint ────────────
-save_dir = Path("/home/tcastellani/sleepstages/first_run")  
+save_dir = Path("/home/tcastellani/sleepstages/upsample_run")  
 save_dir.mkdir(parents=True, exist_ok=True)
 
 ckpt_cb = ModelCheckpoint(

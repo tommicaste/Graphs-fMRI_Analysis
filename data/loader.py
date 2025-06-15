@@ -28,9 +28,9 @@ def load_data(
     path: str,
     batch_size: int = 32,
     workers: int = 0,
-    train_ratio: float = 0.6,
-    val_ratio: float = 0.2,
-    test_ratio: float = 0.2,
+    train_ratio: float = 0.7,
+    val_ratio: float = 0.15,
+    test_ratio: float = 0.15,
     augment_strategy: Optional[str] = None,
     augment_proportion: Optional[float] = None,
     cache_root: str = "/scratch/midway3/tcastellani/sleepstages",
@@ -68,7 +68,7 @@ def load_data(
         # 4. augment if requested
         if augment_strategy:
             if augment_proportion is None:
-                raise ValueError("augment_proportion must accompany augment_strategy")
+                pass
             if augment_strategy == "upsample":
                 train_data = augment_upsample(train_data, proportion=augment_proportion)
             elif augment_strategy == "interpolate":

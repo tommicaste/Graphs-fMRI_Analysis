@@ -17,7 +17,7 @@ class BatchEdgeListTransform(BaseTransform):
         If None, the `top` policy is used.
     """
 
-    def __init__(self, *, top: float = 0.10, tsh: float | None = None):
+    def __init__(self, *, top: float | None = None, tsh: float | None = 0.0):
         super().__init__()
         if tsh is None and not (0.0 < top <= 1.0):
             raise ValueError("`top` must be in (0, 1] when `tsh` is None.")
@@ -40,7 +40,7 @@ class BatchEdgeListTransform(BaseTransform):
         dev = X.device
 
         # strict lower triangle indices (shared)
-        i, j = torch.tril_indices(N, N, offset=-1, device=dev)  # (E,), E = N*(N-1)/2
+        i, j = torch.tril_indices(N, N, offset=-1, device=dev)
         vals = X[:, i, j]  # (B, E)
 
         # choose edges per graph
@@ -68,8 +68,5 @@ class BatchEdgeListTransform(BaseTransform):
             dst = torch.cat([i_sel[b] + offset[b, 0] for b in range(B)])
 
         batch.edge_index = torch.stack((src, dst), dim=0)  # (2, E_total)
-
-        # ensure `batch.batch` is valid
-        if not hasattr(batch, "batch") or batch.batch.max() == 0:
-            batch.batch = torch.arange(B, device=dev).repeat_interleave(N)
+        
         return batch

@@ -4,11 +4,6 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch_geometric.nn import global_mean_pool
 from torchmetrics.classification import MulticlassAccuracy
-try:
-    from torchmetrics.classification import MulticlassBalancedAccuracy
-except ImportError:
-    # Fallback for older torchmetrics versions
-    from torchmetrics import Accuracy as MulticlassBalancedAccuracy
 from pathlib import Path
 from static_models.utils import evaluate_classification
 
@@ -57,20 +52,17 @@ class LightningGNN(pl.LightningModule):
         self.mlp = nn.Sequential(*layers)
 
         # ─────────── Metrics ───────────
-        self.train_acc = MulticlassAccuracy(num_classes=num_classes)
-        self.val_acc   = MulticlassAccuracy(num_classes=num_classes)
-        self.test_acc  = MulticlassAccuracy(num_classes=num_classes)
+        self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
+        self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
+        self.test_wacc  = MulticlassAccuracy(num_classes=num_classes, average="weighted")
 
-        # Handle different torchmetrics versions
-        try:
-            self.train_bacc = MulticlassBalancedAccuracy(num_classes=num_classes)
-            self.val_bacc   = MulticlassBalancedAccuracy(num_classes=num_classes)
-            self.test_bacc  = MulticlassBalancedAccuracy(num_classes=num_classes)
-        except TypeError:
-            # Fallback for older versions
-            self.train_bacc = MulticlassBalancedAccuracy(num_classes=num_classes, task="multiclass")
-            self.val_bacc   = MulticlassBalancedAccuracy(num_classes=num_classes, task="multiclass")
-            self.test_bacc  = MulticlassBalancedAccuracy(num_classes=num_classes, task="multiclass")
+        self.train_bacc = MulticlassAccuracy(num_classes=num_classes, average="macro")
+        self.val_bacc   = MulticlassAccuracy(num_classes=num_classes, average="macro")
+        self.test_bacc  = MulticlassAccuracy(num_classes=num_classes, average="macro")
+
+        self.train_acc = MulticlassAccuracy(num_classes=num_classes, average="micro")
+        self.val_acc   = MulticlassAccuracy(num_classes=num_classes, average="micro")
+        self.test_acc  = MulticlassAccuracy(num_classes=num_classes, average="micro")
 
         # for confusion-matrix at test time
         self.test_logits: list[torch.Tensor] = []

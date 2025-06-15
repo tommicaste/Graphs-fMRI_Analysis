@@ -11,7 +11,7 @@ def split_patient(data_list,
     """
     assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
 
-    # Count per-class segment totals for each patient (grouped by 'sample')
+    # Count per-class segment totals for each sample
     sample_counts = {}
     all_labels = [int(d.y.item()) for d in data_list if not getattr(d, "synthetic", False)]
     num_classes = max(all_labels) + 1

@@ -41,7 +41,7 @@ def augment_upsample(data_list, proportion=0.5):
                 original = random.choice(examples)
                 new_example = copy.deepcopy(original)
                 new_example.metadata['synthetic'] = True
-                new_example.metadata['split']     = 'train'
+                new_example.metadata['split'] = 'train'
                 augmented.append(new_example)
 
     # Return combined list (originals + synthetic upsamples)
