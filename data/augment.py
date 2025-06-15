@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 def augment_upsample(data_list, proportion=0.5):
     """
-    Ensure each class in the training split has at least proportion * (size of the largest class) samples by upsampling underrepresented classes
+    Upsample training split to reach proportion * (size of the largest class) for each underepresented class.
     """
     assert 0 < proportion <= 1
 
@@ -54,7 +54,7 @@ def augment_interpolate(
 ):
     """
     Interpolate between consecutive training samples to balance classes
-    by `proportion` × (size of largest class).
+    by `proportion` * (size of largest class).
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
@@ -76,7 +76,7 @@ def augment_interpolate(
     targets     = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # Pre compute patient wise ordered gaps once, per class
+    # Pre compute patient wise ordered gaps 
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -88,7 +88,7 @@ def augment_interpolate(
             pairs.extend(zip(seq, seq[1:]))
         gaps_per_class[cls] = pairs
 
-    # Helper: project matrix to symmetric, PSD, unit diag correlation
+    # Project matrix to symmetric, PSD
     def project_to_psd(C: torch.Tensor) -> torch.Tensor:
         C = (C + C.T) / 2
         eigvals, eigvecs = torch.linalg.eigh(C)
@@ -99,7 +99,7 @@ def augment_interpolate(
         C_psd.fill_diagonal_(1.0)
         return C_psd.clamp_(-1, 1)
 
-    # Main interpolation loop
+    # Interpolation loop
     synthetic_data = []
     outer_iter = tqdm(
         synth_needs.items(),
@@ -159,7 +159,7 @@ def augment_geodesic(
 ):
     """
     Interpolate geodetically between consecutive training samples to balance classes
-    by `proportion` × (size of largest class).
+    by `proportion` * (size of largest class).
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
@@ -167,8 +167,6 @@ def augment_geodesic(
     for d in data_list:
         assert torch.is_tensor(d.x) and torch.is_tensor(d.y)
         assert torch.isfinite(d.x).all(), f"NaNs in x for {d.metadata}"
-        # This assertion is removed as it can be too strict for correlation matrices
-        # assert (d.x != 0).all(), f"Zeros in x for {d.metadata}"
         d.metadata["synthetic"] = False
 
     # Group training samples by class and by patient
@@ -182,7 +180,7 @@ def augment_geodesic(
     targets     = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # Pre compute patient wise ordered gaps once, per class
+    # Pre compute patient wise ordered gaps
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -194,7 +192,7 @@ def augment_geodesic(
             pairs.extend(zip(seq, seq[1:]))
         gaps_per_class[cls] = pairs
 
-    # Helper: project matrix to symmetric, PSD, unit diag correlation
+    # Project matrix to symmetric PSD just for robustness
     def project_to_psd(C: torch.Tensor) -> torch.Tensor:
         C = (C + C.T) / 2
         eigvals, eigvecs = torch.linalg.eigh(C)
@@ -205,15 +203,14 @@ def augment_geodesic(
         C_psd.fill_diagonal_(1.0)
         return C_psd.clamp_(-1, 1)
 
-    # Helper: Geodesic interpolation between two PSD matrices C1 and C2
+    # Geodesic interpolation between two PSD matrices C1 and C2
     def geodesic(C1: torch.Tensor, C2: torch.Tensor, t: float) -> torch.Tensor:
         """
         Calculates the geodesic C(t) on the manifold of PSD matrices.
         Formula: C(t) = C1^1/2 * (C1^-1/2 * C2 * C1^-1/2)^t * C1^1/2
         """
-        # Eigen-decomposition for matrix square root and its inverse
         eigvals1, eigvecs1 = torch.linalg.eigh(C1)
-        eigvals1.clamp_(min=1e-8)  # Clamp for numerical stability
+        eigvals1.clamp_(min=1e-8) 
         
         C1_sqrt = eigvecs1 @ torch.diag(eigvals1**0.5) @ eigvecs1.T
         C1_inv_sqrt = eigvecs1 @ torch.diag(eigvals1**-0.5) @ eigvecs1.T
@@ -223,7 +220,7 @@ def augment_geodesic(
         
         # Matrix power via eigen-decomposition
         eigvalsM, eigvecsM = torch.linalg.eigh(M)
-        eigvalsM.clamp_(min=0) # M should be PSD, but clamp for safety
+        eigvalsM.clamp_(min=0)
         
         M_t = eigvecsM @ torch.diag(eigvalsM**t) @ eigvecsM.T
 
@@ -265,8 +262,6 @@ def augment_geodesic(
             if n_interp == 0:
                 continue
             s1, s2 = d1.metadata["segment"], d2.metadata["segment"]
-            
-            # Alphas are the 't' in our geodesic formula
             alphas = torch.linspace(1, n_interp, n_interp, device=d1.x.device) / (n_interp + 1)
 
             for alpha in alphas:

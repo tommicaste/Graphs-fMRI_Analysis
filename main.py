@@ -2,13 +2,13 @@ from pathlib import Path
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch_geometric.nn import (
-    GCNConv,          # Graph Convolutional Network
-    SAGEConv,         # GraphSAGE
-    GATConv,          # Graph Attention Network
-    GATv2Conv,        # GAT v2
-    GINConv,          # Graph Isomorphism Network
-    ChebConv,         # Chebyshev Spectral GCN
-    TransformerConv   # Graph Transformer-style convolution
+    GCNConv,          
+    SAGEConv,         
+    GATConv,          
+    GATv2Conv,        
+    GINConv,          
+    ChebConv,         
+    TransformerConv   
 )
 from data import *
 from static_models.gnn import LightningGNN
@@ -25,7 +25,7 @@ torch.cuda.manual_seed(SEED)
 
 # ───────────────────── data ─────────────────────
 augment_strategy="geodesic"
-augment_proportion=0.3
+augment_proportion=0.6
 
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
 train_loader, val_loader, test_loader, weights= load_data(
@@ -43,7 +43,7 @@ model = LightningGNN(
     num_classes=4,
     mlp_hidden=[64, 32],
     lr=1e-3,
-    edge_tsh=0,
+    edge_tsh=0.0,
     loss_type='weighted_cross_entropy',
     class_weights=weights['class_weights'],
     residual_connections=True

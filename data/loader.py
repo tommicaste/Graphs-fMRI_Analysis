@@ -23,14 +23,13 @@ def _cache_file(
     h = hashlib.md5(key.encode()).hexdigest()[:8]
     return os.path.join(cache_root, f"cached_{h}.pt")
 
-
 def load_data(
     path: str,
     batch_size: int = 32,
     workers: int = 0,
-    train_ratio: float = 0.7,
-    val_ratio: float = 0.15,
-    test_ratio: float = 0.15,
+    train_ratio: float = 0.6,
+    val_ratio: float = 0.20,
+    test_ratio: float = 0.20,
     augment_strategy: Optional[str] = None,
     augment_proportion: Optional[float] = None,
     cache_root: str = "/scratch/midway3/tcastellani/sleepstages",
@@ -76,7 +75,6 @@ def load_data(
             elif augment_strategy == "geodesic":
                 train_data = augment_geodesic(train_data, proportion=augment_proportion)
             else:
-                # Corrected this logic to be more robust
                 raise ValueError(f"Unknown augment_strategy: {augment_strategy}")
         print("Data augmented" if augment_strategy else "No augmentation")
 
@@ -84,7 +82,7 @@ def load_data(
         torch.save((train_data, val_data, test_data), cache_path)
         print(f"Cached dataset to {cache_path}")
 
-    # --- 2. ADD THE 3 LINES TO COMPUTE WEIGHTS ---
+    # 6. compute class weights from training set
     print("Calculating class weights...")
     train_labels = torch.tensor([d.y.item() for d in train_data])
     class_counts = torch.bincount(train_labels)
@@ -95,10 +93,9 @@ def load_data(
 
     print(f"Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
 
-    # 6. build loaders
+    # 7. build loaders
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True,  num_workers=workers)
     val_loader   = DataLoader(val_data,   batch_size=batch_size, shuffle=False, num_workers=workers)
     test_loader  = DataLoader(test_data,  batch_size=batch_size, shuffle=False, num_workers=workers)
 
-    # --- 3. EDIT THE RETURN STATEMENT ---
     return train_loader, val_loader, test_loader, results
