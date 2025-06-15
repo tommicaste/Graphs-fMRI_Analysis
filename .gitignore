@@ -1,7 +1,6 @@
 # Ignore experiments (scripts, temp notebooks, etc.)
 experiments/
 logs/
-sleepstages_pipeline.egg-info
 *_run
 run*/
 
