@@ -15,15 +15,15 @@ pl.seed_everything(SEED, workers=True)
 augment_strategy   = None
 augment_proportion = None
 
-path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
+path = "/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt"
 train_loader, val_loader, test_loader, weights = load_data(
     path,
     augment_strategy     = augment_strategy,
     augment_proportion   = augment_proportion,
-    batch_size           = 48,
+    batch_size           = 64,
     workers          = 3,
-    train_ratio= 0.65,
-    val_ratio = 0.20,
+    train_ratio= 0.70,
+    val_ratio = 0.15,
     test_ratio = 0.15,
 )
 

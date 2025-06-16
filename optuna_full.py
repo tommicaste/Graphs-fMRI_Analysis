@@ -14,7 +14,7 @@ ROOT.mkdir(parents=True, exist_ok=True)
 DB_FILE = ROOT / "optuna_pipeline.db"
 
 SEED, BATCH_SIZE, WORKERS = 12, 48, 3
-DATA_PATH = Path("/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt")
+DATA_PATH = Path("/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt")
 pl.seed_everything(SEED, workers=True)
 
 FIXED_DATA = dict(batch_size=BATCH_SIZE, workers=WORKERS,
@@ -54,14 +54,18 @@ def sample_stage1(trial):
         GNNLayer        = BACKBONES[trial.suggest_categorical("backbone", list(BACKBONES))],
         num_layers      = trial.suggest_int("num_layers", 1, 3),
         augment_strategy   = trial.suggest_categorical("augment_strategy", ["interpolate", "geodesic"]),
-        augment_proportion = trial.suggest_float("augment_proportion", 0.2, 0.8),
+        augment_proportion = trial.suggest_categorical(
+                                "augment_proportion",
+                                [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]),  # ← discretised (0.10 steps)
         hidden_channels = 64,
         pooling_fn      = "mean",
         mlp_hidden      = [64, 32],
         loss_type       = trial.suggest_categorical("loss_type", ["cross_entropy", "weighted_cross_entropy"]),
-        lr              = trial.suggest_float("lr", 1e-4, 3e-3, log=True),
-        wd              = trial.suggest_float("wd", 1e-6, 1e-2, log=True),
-        edge_dropout    = 0.0,          # fixed in stage-1
+        lr              = trial.suggest_categorical(
+                            "lr", [1e-4, 3e-4, 1e-3, 3e-3]),          # ← discrete grid
+        wd              = trial.suggest_categorical(
+                            "wd", [1e-6, 1e-5, 1e-4, 1e-3, 1e-2]),   # ← discrete grid
+        edge_dropout    = 0.0,
     )
 
 # ───────────────────── 2. STAGE-2 SPACE ────────────
@@ -105,7 +109,7 @@ def make_objective(space_fn):
                                   mode="max", save_last=True, save_top_k=1)
         pruning_cb = LightningPruningCallback(trial, monitor="val_bacc")
         trainer = pl.Trainer(max_epochs=40, callbacks=[ckpt_cb, pruning_cb],
-                             accelerator="auto", devices=1, enable_progress_bar=False)
+                             accelerator="auto", devices="auto", enable_progress_bar=False)
         trainer.fit(model, train_loader, val_loader)
         return trainer.callback_metrics["val_bacc"].item()
     return objective

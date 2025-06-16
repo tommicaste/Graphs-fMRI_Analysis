@@ -22,15 +22,15 @@ pl.seed_everything(SEED, workers=True)
 augment_strategy   = "upsample"
 augment_proportion = 0.6
 
-path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
+path = "/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt"
 train_loader, val_loader, test_loader, weights = load_data(
     path,
     augment_strategy     = augment_strategy,
     augment_proportion   = augment_proportion,
-    batch_size           = 48,
+    batch_size           = 64,
     workers          = 3,
-    train_ratio= 0.65,
-    val_ratio = 0.20,
+    train_ratio= 0.70,
+    val_ratio = 0.15,
     test_ratio = 0.15,
 )
 
@@ -38,7 +38,7 @@ run_name = f"gnn_{augment_strategy}_{augment_proportion}_nonoverlapping"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
-    input_dim=347,
+    input_dim=294,
     hidden_channels=64,
     num_layers=3,
     GNNLayer=SAGEConv, 
