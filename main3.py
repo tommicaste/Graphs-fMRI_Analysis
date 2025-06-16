@@ -12,22 +12,29 @@ SEED = 12
 pl.seed_everything(SEED, workers=True)
 
 # data ────────────────────────────────────────────────────────
-path = "/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt"
+augment_strategy   = None
+augment_proportion = None
+
+path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
 train_loader, val_loader, test_loader, weights = load_data(
     path,
-    augment_strategy=None,
-    batch_size=48,
+    augment_strategy     = augment_strategy,
+    augment_proportion   = augment_proportion,
+    batch_size           = 48,
+    workers          = 3,
+    train_ratio= 0.65,
+    val_ratio = 0.20,
+    test_ratio = 0.15,
 )
 
-run_name = "mlp_non_overlapping"        
-
+run_name = f"mlp_{augment_strategy}_{augment_proportion}_nonoverlapping"
 # model ───────────────────────────────────────────────────────
 model = LightningMLP(
-    input_dim    = 294,
+    input_dim    = 347,
     hidden_dims  = [128, 64],   
     num_classes  = 4,
     lr           = 1e-3,
-    dropout      = 0.2,
+    dropout      = 0.0,
     loss_type    = "cross_entropy",
     class_weights= weights["class_weights"],
 )

@@ -14,4 +14,4 @@ source /home/tcastellani/miniconda3/etc/profile.d/conda.sh
 conda activate py11
 
 # Run your command
-python /home/tcastellani/sleepstages/optuna_search.py
+python /home/tcastellani/sleepstages/optuna_full.py

@@ -83,13 +83,18 @@ def load_data(
         print(f"Cached dataset to {cache_path}")
 
     # 6. compute class weights from training set
-    print("Calculating class weights...")
     train_labels = torch.tensor([d.y.item() for d in train_data])
+    val_labels  = torch.tensor([d.y.item() for d in val_data])
+    test_labels = torch.tensor([d.y.item() for d in test_data])
+
+    print("Train class distribution:", torch.bincount(train_labels).tolist())
+    print("Val class distribution:", torch.bincount(val_labels).tolist()) 
+    print("Test class distribution:", torch.bincount(test_labels).tolist())
+
     class_counts = torch.bincount(train_labels)
     class_weights = (1.0 / class_counts.float()) / (1.0 / class_counts.float()).sum()
     
     results = {'class_weights': class_weights}
-    print(f"Class weights: {results['class_weights'].tolist()}")
 
     print(f"Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
 

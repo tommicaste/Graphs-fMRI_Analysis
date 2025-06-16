@@ -3,6 +3,7 @@ experiments/
 logs/
 *_run
 run*/
+optuna_search_*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -19,25 +19,35 @@ SEED = 12
 pl.seed_everything(SEED, workers=True)
 
 # ───────────────────── data ─────────────────────
-augment_strategy=None
-augment_proportion=None
+augment_strategy   = "upsample"
+augment_proportion = 0.6
 
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
-train_loader, val_loader, test_loader, weights= load_data(
-    path, augment_strategy=augment_strategy, augment_proportion=augment_proportion, batch_size=48
+train_loader, val_loader, test_loader, weights = load_data(
+    path,
+    augment_strategy     = augment_strategy,
+    augment_proportion   = augment_proportion,
+    batch_size           = 48,
+    workers          = 3,
+    train_ratio= 0.65,
+    val_ratio = 0.20,
+    test_ratio = 0.15,
 )
-name = f"overlapping_{augment_strategy}_{str(augment_proportion)}"
+
+run_name = f"gnn_{augment_strategy}_{augment_proportion}_nonoverlapping"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
     input_dim=347,
     hidden_channels=64,
-    num_layers=2,
+    num_layers=3,
     GNNLayer=SAGEConv, 
     dropout=0.5,
+    edge_dropout=  0.3,
     num_classes=4,
     mlp_hidden=[64, 32],
-    lr=1e-3,
+    lr = 0.0007992829895227538,
+    wd = 0.00010001636649365086,
     edge_tsh=0,
     edge_top=None, 
     loss_type='cross_entropy',
@@ -47,13 +57,13 @@ model = LightningGNN(
 )
 
 # ──────────── checkpoint ────────────
-save_dir = Path(f"/home/tcastellani/sleepstages/run/{name}")  
+save_dir = Path(f"/home/tcastellani/sleepstages/run/{run_name}")  
 save_dir.mkdir(parents=True, exist_ok=True)
 
 ckpt_cb = ModelCheckpoint(
     dirpath=save_dir / "checkpoints",
-    filename="epoch={epoch:02d}_val_acc={val_acc:.4f}",
-    monitor="val_acc",
+    filename="epoch={epoch:02d}_val_bacc={val_acc:.4f}",
+    monitor="val_bacc",
     mode="max",
     save_top_k=1,
     save_last=True,
@@ -68,6 +78,7 @@ trainer = pl.Trainer(
     devices=1,
     log_every_n_steps=10,
     enable_progress_bar=True,
+    #precision="bf16-mixed" if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else "32-true",
 )
 
 trainer.fit(model, train_loader, val_loader)

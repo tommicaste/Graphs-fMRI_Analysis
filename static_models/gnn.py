@@ -7,6 +7,7 @@ from torchmetrics.classification import MulticlassAccuracy
 from pathlib import Path
 from static_models.utils import evaluate_classification
 from static_models.transforms import BatchEdgeListTransform
+from torch_geometric.utils import dropout_edge
 
 
 class LightningGNN(pl.LightningModule):
@@ -17,9 +18,10 @@ class LightningGNN(pl.LightningModule):
         hidden_channels: int,
         num_layers: int,
         GNNLayer: nn.Module,
-        dropout: float,
         num_classes: int,
         mlp_hidden: list[int],
+        dropout: float = 0.0,
+        edge_dropout: float = 0.0,
         lr: float = 1e-3,
         wd: float = 1e-3,
         edge_top=0.10,
@@ -104,6 +106,14 @@ class LightningGNN(pl.LightningModule):
     def forward(self, data):
         data = self.edge_tf(data)
         x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        # Apply edge dropout during training
+        edge_index, _ = dropout_edge(
+            edge_index,
+            p=self.hparams.edge_dropout,
+            force_undirected=True,
+            training=self.training
+        )
         
         for i, (conv, norm) in enumerate(zip(self.convs, self.norms)):
             x_residual = x
