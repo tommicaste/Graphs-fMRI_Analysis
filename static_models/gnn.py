@@ -21,6 +21,7 @@ class LightningGNN(pl.LightningModule):
         num_classes: int,
         mlp_hidden: list[int],
         lr: float = 1e-3,
+        wd: float = 1e-3,
         edge_top=0.10,
         edge_tsh=None,
         loss_type: str = 'cross_entropy',
@@ -184,7 +185,9 @@ class LightningGNN(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
-            self.parameters(), lr=float(self.hparams.lr), weight_decay=5e-3
+            self.parameters(), 
+            lr=float(self.hparams.lr), 
+            weight_decay = float(self.hparams.wd)
         )
         
         return {

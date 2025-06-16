@@ -19,14 +19,14 @@ SEED = 12
 pl.seed_everything(SEED, workers=True)
 
 # ───────────────────── data ─────────────────────
-augment_strategy="geodesic"
-augment_proportion=0.4
+augment_strategy=None
+augment_proportion=None
 
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
 train_loader, val_loader, test_loader, weights= load_data(
     path, augment_strategy=augment_strategy, augment_proportion=augment_proportion, batch_size=48
 )
-name = f"{augment_strategy}_{str(augment_proportion)}_schedule"
+name = f"overlapping_{augment_strategy}_{str(augment_proportion)}"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
@@ -36,7 +36,7 @@ model = LightningGNN(
     GNNLayer=SAGEConv, 
     dropout=0.5,
     num_classes=4,
-    mlp_hidden=[32],
+    mlp_hidden=[64, 32],
     lr=1e-3,
     edge_tsh=0,
     edge_top=None, 
@@ -61,7 +61,7 @@ ckpt_cb = ModelCheckpoint(
 
 # ─────────────────── trainer ────────────────────
 trainer = pl.Trainer(
-    max_epochs=70,
+    max_epochs=50,
     default_root_dir=str(save_dir),
     callbacks=[ckpt_cb],
     accelerator="auto",

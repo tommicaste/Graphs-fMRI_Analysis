@@ -47,7 +47,7 @@ ckpt_cb = ModelCheckpoint(
 
 # trainer ────────────────────────────────────────────────────
 trainer = pl.Trainer(
-    max_epochs          = 70,
+    max_epochs          = 50,
     default_root_dir    = str(save_dir),
     callbacks           = [ckpt_cb],
     accelerator         = "auto",
