@@ -34,7 +34,6 @@ def split_patient(data_list,
         'test':  total_per_class * test_ratio,
     }
     running = {k: np.zeros(num_classes, dtype=float) for k in targets}
-    random.shuffle(patients)
 
     # Greedy assignment: place each patient where they reduce class imbalance most
     assignment = {}

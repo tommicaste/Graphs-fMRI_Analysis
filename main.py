@@ -6,8 +6,7 @@ from torch_geometric.nn import (
     SAGEConv,         
     GATConv,          
     GATv2Conv,        
-    GINConv,          
-    ChebConv,         
+    GINConv,                  
     TransformerConv   
 )
 from data import *
@@ -16,40 +15,38 @@ import torch
 import random 
 import numpy as np
 
-SEED = 23
-
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
+SEED = 12
+pl.seed_everything(SEED, workers=True)
 
 # ───────────────────── data ─────────────────────
 augment_strategy="geodesic"
-augment_proportion=0.6
+augment_proportion=0.4
 
 path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
 train_loader, val_loader, test_loader, weights= load_data(
-    path, augment_strategy=augment_strategy, augment_proportion=augment_proportion
+    path, augment_strategy=augment_strategy, augment_proportion=augment_proportion, batch_size=48
 )
-name = f"{augment_strategy}_{str(augment_proportion)}"
+name = f"{augment_strategy}_{str(augment_proportion)}_schedule"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
     input_dim=347,
     hidden_channels=64,
-    num_layers=3,
-    GNNLayer=SAGEConv,
+    num_layers=2,
+    GNNLayer=SAGEConv, 
     dropout=0.5,
     num_classes=4,
-    mlp_hidden=[64, 32],
+    mlp_hidden=[32],
     lr=1e-3,
-    edge_tsh=0.0,
-    loss_type='weighted_cross_entropy',
+    edge_tsh=0,
+    edge_top=None, 
+    loss_type='cross_entropy',
     class_weights=weights['class_weights'],
-    residual_connections=True
+    residual_connections=True, 
+    pooling_fn='mean'
 )
 
-# ──────────── NEW: run folder and checkpoint ────────────
+# ──────────── checkpoint ────────────
 save_dir = Path(f"/home/tcastellani/sleepstages/run/{name}")  
 save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -64,7 +61,7 @@ ckpt_cb = ModelCheckpoint(
 
 # ─────────────────── trainer ────────────────────
 trainer = pl.Trainer(
-    max_epochs=50,
+    max_epochs=70,
     default_root_dir=str(save_dir),
     callbacks=[ckpt_cb],
     accelerator="auto",

@@ -1,72 +1,94 @@
 import torch
 from torch_geometric.transforms import BaseTransform
+import torch.nn as nn
 
 
 class BatchEdgeListTransform(BaseTransform):
     """
-    Build a single `edge_index` for a PyG Batch whose stacked correlation
-    matrices live in `batch.x` (shape = (B*N, N)).
-
-    Parameters
-    ----------
-    top : float, default 0.10
-        Keep the strongest `top` fraction of strict lower triangle entries
-        in each graph. Ignored when `tsh` is not None.
-    tsh : float | None, default None
-        Hard threshold; keep every entry ≥ `tsh`.
-        If None, the `top` policy is used.
+    Build a single `edge_index` for a PyG Batch from stacked correlation
+    matrices in `batch.x`.
     """
 
-    def __init__(self, *, top: float | None = None, tsh: float | None = 0.0):
+    def __init__(self, *, top: float | None = None, tsh: float | None = None):
         super().__init__()
-        if tsh is None and not (0.0 < top <= 1.0):
-            raise ValueError("`top` must be in (0, 1] when `tsh` is None.")
+        
+        # --- Parameter Validation ---
+        if top is not None and tsh is not None:
+            raise ValueError("Please specify either 'top' or 'tsh', but not both.")
+        if top is None and tsh is None:
+            raise ValueError("An edge creation strategy is required. Please specify either 'top' or 'tsh'.")
+
+        if top is not None and not (0.0 < top <= 1.0):
+            raise ValueError("Parameter 'top' must be in the interval (0, 1].")
+        
         self.top = top
         self.tsh = tsh
 
-    # ------------------------------------------------------------------
     def __call__(self, batch):
         if not hasattr(batch, "x"):
             raise AttributeError(
                 "Batch must contain attribute `batch.x` of shape (B*N, N)."
             )
 
-        # reshape to (B, N, N)
+        # Reshape to (B, N, N)
         total_rows, N = batch.x.shape
         if total_rows % N != 0:
             raise ValueError("batch.x rows not divisible by N; graphs have unequal sizes?")
         B = total_rows // N
-        X = batch.x.view(B, N, N)  # (B, N, N)
+        X = batch.x.view(B, N, N)
         dev = X.device
 
-        # strict lower triangle indices (shared)
+        # Get strict lower triangle indices and their values
         i, j = torch.tril_indices(N, N, offset=-1, device=dev)
-        vals = X[:, i, j]  # (B, E)
+        vals = X[:, i, j] 
 
-        # choose edges per graph
-        if self.tsh is None:
+        
+        if self.tsh is not None:
+            
+            mask = vals >= self.tsh
+            edge_coords = mask.nonzero(as_tuple=False)
+            batch_idx, edge_in_tri_idx = edge_coords[:, 0], edge_coords[:, 1]
+            selected_i, selected_j = i[edge_in_tri_idx], j[edge_in_tri_idx]
+            offset = batch_idx * N
+            src, dst = selected_j + offset, selected_i + offset
+        else:
+            
             k = int(self.top * vals.size(1))
             if k == 0:
+                
                 batch.edge_index = torch.empty((2, 0), dtype=torch.long, device=dev)
                 return batch
-            _, idx = vals.topk(k, dim=1)  # (B, k)
-            i_sel = torch.gather(i.expand(B, -1), 1, idx)  # (B, k)
-            j_sel = torch.gather(j.expand(B, -1), 1, idx)  # (B, k)
-        else:
-            mask = vals >= self.tsh  # (B, E)
-            i_sel = [i[m] for m in mask]  # ragged
-            j_sel = [j[m] for m in mask]
-
-        # node offsets so indices refer to the concatenated node tensor
-        offset = (torch.arange(B, device=dev) * N).unsqueeze(1)  # (B, 1)
-
-        if self.tsh is None:
-            src = (j_sel + offset).flatten()  # [E_total]
+            
+            _, idx = vals.topk(k, dim=1)
+            i_sel = torch.gather(i.expand(B, -1), 1, idx)
+            j_sel = torch.gather(j.expand(B, -1), 1, idx)
+            offset = (torch.arange(B, device=dev) * N).unsqueeze(1)
+            src = (j_sel + offset).flatten()
             dst = (i_sel + offset).flatten()
-        else:
-            src = torch.cat([j_sel[b] + offset[b, 0] for b in range(B)])
-            dst = torch.cat([i_sel[b] + offset[b, 0] for b in range(B)])
 
-        batch.edge_index = torch.stack((src, dst), dim=0)  # (2, E_total)
+        
+        batch.edge_index = torch.stack((src, dst), dim=0)
         
         return batch
+    
+
+class LowerTriFlattenBatch(nn.Module):
+    """
+    PyG batch of symmetric N × N matrices:
+        data.x      (B·N, N)
+        data.batch  (B·N,)
+    returns
+        (B, N(N−1)//2)   strictly lower triangular, diagonal excluded
+    """
+    def __init__(self, n: int):
+        super().__init__()
+        r, c = torch.tril_indices(n, n, offset=-1)
+        self.register_buffer("rows", r, persistent=False)
+        self.register_buffer("cols", c, persistent=False)
+        self.n = n
+
+    def forward(self, data):
+        x, batch_vec = data.x, data.batch
+        B = int(batch_vec.max()) + 1
+        x = x.view(B, self.n, self.n)
+        return x[:, self.rows, self.cols].contiguous()

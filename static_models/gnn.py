@@ -41,7 +41,7 @@ class LightningGNN(pl.LightningModule):
             + [GNNLayer(hidden_channels, hidden_channels) for _ in range(num_layers - 1)]
         )
         self.norms = nn.ModuleList(
-            [nn.BatchNorm1d(hidden_channels) for _ in range(num_layers)]
+            [nn.LayerNorm(hidden_channels) for _ in range(num_layers)]
         )
         
         # ─────────── Pooling Layer ───────────
@@ -183,27 +183,10 @@ class LightningGNN(pl.LightningModule):
         )
 
     def configure_optimizers(self):
-        """
-        Configure the optimizer and learning rate scheduler.
-        """
         optimizer = torch.optim.AdamW(
-            self.parameters(), lr=float(self.hparams.lr), weight_decay=5e-4
+            self.parameters(), lr=float(self.hparams.lr), weight_decay=5e-3
         )
-
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode='min',      
-            factor=0.1,    
-            patience=5,     
-            verbose=True
-        )
-
+        
         return {
             "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": "val_loss",
-                "interval": "epoch",
-                "frequency": 1,
-            },
-        }
+            }
