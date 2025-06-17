@@ -19,8 +19,8 @@ SEED = 12
 pl.seed_everything(SEED, workers=True)
 
 # ───────────────────── data ─────────────────────
-augment_strategy   = "upsample"
-augment_proportion = 0.6
+augment_strategy   = "geodesic"
+augment_proportion = 0.3
 
 path = "/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt"
 train_loader, val_loader, test_loader, weights = load_data(
@@ -34,7 +34,7 @@ train_loader, val_loader, test_loader, weights = load_data(
     test_ratio = 0.15,
 )
 
-run_name = f"gnn_{augment_strategy}_{augment_proportion}_nonoverlapping"
+run_name = f"gnn_{augment_strategy}_{augment_proportion}_overlapping_no_edges"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
@@ -43,14 +43,14 @@ model = LightningGNN(
     num_layers=3,
     GNNLayer=SAGEConv, 
     dropout=0.5,
-    edge_dropout=  0.3,
-    num_classes=4,
+    edge_dropout =  1,
+    num_classes = 4,
     mlp_hidden=[64, 32],
-    lr = 0.0007992829895227538,
-    wd = 0.00010001636649365086,
+    lr = 0.0005,
+    wd = 0.0001,
     edge_tsh=0,
     edge_top=None, 
-    loss_type='cross_entropy',
+    loss_type='weighted_cross_entropy',
     class_weights=weights['class_weights'],
     residual_connections=True, 
     pooling_fn='mean'

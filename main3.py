@@ -30,7 +30,7 @@ train_loader, val_loader, test_loader, weights = load_data(
 run_name = f"mlp_{augment_strategy}_{augment_proportion}_nonoverlapping"
 # model ───────────────────────────────────────────────────────
 model = LightningMLP(
-    input_dim    = 347,
+    input_dim    = 294,
     hidden_dims  = [128, 64],   
     num_classes  = 4,
     lr           = 1e-3,

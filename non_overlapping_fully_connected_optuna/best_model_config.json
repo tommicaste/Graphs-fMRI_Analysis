@@ -1,0 +1,16 @@
+{
+  "backbone": "SAGEConv",
+  "num_layers": 1,
+  "augment_strategy": "geodesic",
+  "augment_proportion": 0.609516638333023,
+  "loss_type": "weighted_cross_entropy",
+  "lr": 0.0015268133753015601,
+  "wd": 0.0001392965156514711,
+  "hidden_channels": 128,
+  "edge_dropout": 0.13831606547194555,
+  "pooling_fn": "max",
+  "mlp_hidden": [
+    64,
+    32
+  ]
+}
