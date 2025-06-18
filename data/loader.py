@@ -1,8 +1,12 @@
 from typing import List, Tuple, Optional, Dict
 import os, hashlib, torch
-from torch_geometric.loader import DataLoader
-from data.split import split_patient
+#from torch_geometric.loader import DataLoader
+from data.split import split_patient, temporal_splits
 from data.augment import augment_upsample, augment_interpolate, augment_geodesic
+import random
+from torch.utils.data import DataLoader
+import numpy as np
+from pathlib import Path
 
 def _cache_file(
     raw_path: str,
@@ -105,3 +109,44 @@ def load_data(
 
     return train_loader, val_loader, test_loader, results
 
+def load_temporal_data(data_directory, batch_size, num_workers, train_ratio=0.6, val_ratio=0.2, test_ratio=0.2):
+    """
+    Calls the splitting function and creates train, validation, and test DataLoaders
+    with parallel worker processes.
+    """
+    # 1. Get the lists of dictionaries for each split
+    train_data_dicts, val_data_dicts, test_data_dicts = temporal_splits(
+        data_directory, train_ratio, val_ratio, test_ratio
+    )
+
+    # 2. Extract only the 'loader' object from each dictionary
+    train_dataset = [item['loader'] for item in train_data_dicts]
+    val_dataset =   [item['loader'] for item in val_data_dicts]
+    test_dataset =  [item['loader'] for item in test_data_dicts]
+
+    # 3. Create the DataLoader for each dataset with workers
+    # persistent_workers=True avoids restarting workers between epochs, speeding things up.
+    # Note: Using num_workers > 0 on Windows can require extra setup (e.g., if __name__ == '__main__').
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        persistent_workers=True if num_workers > 0 else False
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        persistent_workers=True if num_workers > 0 else False
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        persistent_workers=True if num_workers > 0 else False
+    )
+
+    return train_loader, val_loader, test_loader
