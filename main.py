@@ -19,10 +19,10 @@ SEED = 12
 pl.seed_everything(SEED, workers=True)
 
 # ───────────────────── data ─────────────────────
-augment_strategy   = "geodesic"
-augment_proportion = 0.3
+augment_strategy   = None
+augment_proportion = None
 
-path = "/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt"
+path = "/home/tcastellani/projects/sleepstages/neurograph/HCPGender/data.pt"
 train_loader, val_loader, test_loader, weights = load_data(
     path,
     augment_strategy     = augment_strategy,
@@ -38,22 +38,22 @@ run_name = f"gnn_{augment_strategy}_{augment_proportion}_overlapping_no_edges"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
-    input_dim=294,
+    input_dim=1000,
     hidden_channels=64,
     num_layers=3,
     GNNLayer=SAGEConv, 
     dropout=0.5,
     edge_dropout =  1,
-    num_classes = 4,
+    num_classes = 2,
     mlp_hidden=[64, 32],
     lr = 0.0005,
     wd = 0.0001,
-    edge_tsh=0,
-    edge_top=None, 
-    loss_type='weighted_cross_entropy',
-    class_weights=weights['class_weights'],
-    residual_connections=True, 
-    pooling_fn='mean'
+    edge_tsh = None,
+    edge_top = None, 
+    loss_type = 'cross_entropy',
+    class_weights = weights['class_weights'],
+    residual_connections = True, 
+    pooling_fn = 'mean'
 )
 
 # ──────────── checkpoint ────────────

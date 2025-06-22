@@ -1,1 +1,1 @@
-from .transforms import BatchEdgeListTransform
+from static_models.transforms import BatchEdgeListTransform

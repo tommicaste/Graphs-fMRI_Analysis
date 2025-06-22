@@ -1,8 +1,9 @@
 import torch
 from functools import lru_cache
+from typing import Optional
 from tqdm.auto import tqdm
 
-def add_edge_list(data_list, tsh: float = None, top: float = 0.10, verbose: bool = True):
+def add_edge_list(data_list, tsh: Optional[float] = None, top: float = 0.10, verbose: bool = True):
     """
     Add an edge_index to each Data in data_list by thresholding its c matrix (hard or top-percentile).
     """

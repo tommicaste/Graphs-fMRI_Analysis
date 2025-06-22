@@ -16,7 +16,9 @@ class BatchEdgeListTransform(BaseTransform):
         if top is not None and tsh is not None:
             raise ValueError("Please specify either 'top' or 'tsh', but not both.")
         if top is None and tsh is None:
-            raise ValueError("An edge creation strategy is required. Please specify either 'top' or 'tsh'.")
+            # If both parameters are None, the transform acts as a no-op (pass-through)
+            # as long as `edge_index` is already present in the data object.
+            pass
 
         if top is not None and not (0.0 < top <= 1.0):
             raise ValueError("Parameter 'top' must be in the interval (0, 1].")
@@ -25,6 +27,16 @@ class BatchEdgeListTransform(BaseTransform):
         self.tsh = tsh
 
     def __call__(self, batch):
+        # Passthrough behaviour when no edge creation strategy is specified
+        if self.top is None and self.tsh is None:
+            if hasattr(batch, "edge_index"):
+                print("No edge creation strategy specified and `batch` has `edge_index`.")
+                return batch  # nothing to do
+            else:
+                raise AttributeError(
+                    "No edge creation strategy specified and `batch` lacks `edge_index`."
+                )
+
         if not hasattr(batch, "x"):
             raise AttributeError(
                 "Batch must contain attribute `batch.x` of shape (B*N, N)."
@@ -55,10 +67,8 @@ class BatchEdgeListTransform(BaseTransform):
             
             k = int(self.top * vals.size(1))
             if k == 0:
-                
                 batch.edge_index = torch.empty((2, 0), dtype=torch.long, device=dev)
                 return batch
-            
             _, idx = vals.topk(k, dim=1)
             i_sel = torch.gather(i.expand(B, -1), 1, idx)
             j_sel = torch.gather(j.expand(B, -1), 1, idx)
@@ -68,7 +78,6 @@ class BatchEdgeListTransform(BaseTransform):
 
         
         batch.edge_index = torch.stack((src, dst), dim=0)
-        
         return batch
     
 

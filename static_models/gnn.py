@@ -107,14 +107,14 @@ class LightningGNN(pl.LightningModule):
         data = self.edge_tf(data)
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        # Apply edge dropout during training
+        # Edge dropout
         edge_index, _ = dropout_edge(
             edge_index,
             p=self.hparams.edge_dropout,
             force_undirected=True,
             training=self.training
         )
-        
+        # GNN layers
         for i, (conv, norm) in enumerate(zip(self.convs, self.norms)):
             x_residual = x
             x = conv(x, edge_index)
@@ -122,9 +122,11 @@ class LightningGNN(pl.LightningModule):
             
             if self.hparams.residual_connections and i > 0:
                 x = x + x_residual
-                
-            x = F.dropout(x, p=self.hparams.dropout, training=self.training)
             
+            # Dropout
+            x = F.dropout(x, p=self.hparams.dropout, training=self.training)
+        
+        #Pooling    
         x = self.pool(x, batch) 
         return self.mlp(x)
 

@@ -1,10 +1,9 @@
 from typing import List, Tuple, Optional, Dict
 import os, hashlib, torch
-#from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader
 from data.split import split_patient, temporal_splits
 from data.augment import augment_upsample, augment_interpolate, augment_geodesic
 import random
-from torch.utils.data import DataLoader
 import numpy as np
 from pathlib import Path
 
