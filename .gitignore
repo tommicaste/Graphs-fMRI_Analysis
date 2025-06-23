@@ -10,6 +10,7 @@ __pycache__/
 *.py[cod]
 *.so
 *.pyd
+*.slurm
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
