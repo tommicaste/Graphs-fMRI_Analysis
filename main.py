@@ -15,14 +15,17 @@ import torch
 import random 
 import numpy as np
 
-SEED = 12
+SEED = 123
 pl.seed_everything(SEED, workers=True)
 
 # ───────────────────── data ─────────────────────
-augment_strategy   = None
-augment_proportion = None
+augment_strategy   = "interpolate"
+augment_proportion = 0.5
 
-path = "/home/tcastellani/projects/sleepstages/neurograph/HCPGender/data.pt"
+#path = "/home/tcastellani/projects/sleepstages/neurograph/HCPGender/data.pt"
+path = "/project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt"
+#path = "/project2/cdonnat/sleepstages/data/pt/overlapping_data.pt"
+
 train_loader, val_loader, test_loader, weights = load_data(
     path,
     augment_strategy     = augment_strategy,
@@ -30,39 +33,39 @@ train_loader, val_loader, test_loader, weights = load_data(
     batch_size           = 64,
     workers          = 3,
     train_ratio= 0.70,
-    val_ratio = 0.15,
-    test_ratio = 0.15,
+    val_ratio = 0.20,
+    test_ratio = 0.10,
 )
 
 run_name = f"gnn_{augment_strategy}_{augment_proportion}_overlapping_no_edges"
 
 # ───────────────────── model ────────────────────
 model = LightningGNN(
-    input_dim=1000,
-    hidden_channels=64,
+    input_dim=347,
+    hidden_channels=32,
     num_layers=3,
     GNNLayer=SAGEConv, 
-    dropout=0.5,
-    edge_dropout =  1,
-    num_classes = 2,
+    dropout=0.1,
+    edge_dropout =  0.1,
+    num_classes = 4,
     mlp_hidden=[64, 32],
-    lr = 0.0005,
+    lr = 0.0001,
     wd = 0.0001,
     edge_tsh = None,
-    edge_top = None, 
-    loss_type = 'cross_entropy',
+    edge_top = 0.10, 
+    loss_type = 'weighted_cross_entropy',
     class_weights = weights['class_weights'],
     residual_connections = True, 
-    pooling_fn = 'mean'
+    pooling_fn = 'sort'
 )
 
 # ──────────── checkpoint ────────────
-save_dir = Path(f"/home/tcastellani/sleepstages/run/{run_name}")  
+save_dir = Path(f"/home/tcastellani/projects/sleepstages/run/{run_name}")  
 save_dir.mkdir(parents=True, exist_ok=True)
 
 ckpt_cb = ModelCheckpoint(
     dirpath=save_dir / "checkpoints",
-    filename="epoch={epoch:02d}_val_bacc={val_acc:.4f}",
+    filename="epoch={epoch:02d}_val_bacc={val_bacc:.4f}",
     monitor="val_bacc",
     mode="max",
     save_top_k=1,

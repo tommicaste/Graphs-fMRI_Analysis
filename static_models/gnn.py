@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool
+from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool, global_sort_pool
 from torchmetrics.classification import MulticlassAccuracy
 from pathlib import Path
 from static_models.utils import evaluate_classification
@@ -11,7 +11,6 @@ from torch_geometric.utils import dropout_edge
 
 
 class LightningGNN(pl.LightningModule):
-
     def __init__(
         self,
         input_dim: int,
@@ -24,12 +23,13 @@ class LightningGNN(pl.LightningModule):
         edge_dropout: float = 0.0,
         lr: float = 1e-3,
         wd: float = 1e-3,
-        edge_top=0.10,
-        edge_tsh=None,
+        edge_top: float | None = None,
+        edge_tsh: float | None = None,
         loss_type: str = 'cross_entropy',
         class_weights: torch.Tensor | None = None,
         residual_connections: bool = False,
-        pooling_fn: str = 'mean'
+        pooling_fn: str = 'mean',
+        sort_pool_k: int = 10
     ):
         super().__init__()
         # Saves all hyperparameters passed to __init__
@@ -51,8 +51,14 @@ class LightningGNN(pl.LightningModule):
         self.pool = self._configure_pooling()
 
         # ─────────── MLP head ───────────
+        # Calculate input dimension for MLP based on pooling function (inline logic)
+        if pooling_fn == 'sort':
+            mlp_input_dim = sort_pool_k * hidden_channels
+        else:
+            mlp_input_dim = hidden_channels
+        
         layers: list[nn.Module] = []
-        in_dim = hidden_channels
+        in_dim = mlp_input_dim
         for h in mlp_hidden:
             layers += [nn.Linear(in_dim, h), nn.ReLU(), nn.Dropout(dropout)]
             in_dim = h
@@ -100,20 +106,27 @@ class LightningGNN(pl.LightningModule):
             return global_add_pool
         elif pooling_fn_str == 'max':
             return global_max_pool
+        elif pooling_fn_str == 'sort':
+            return lambda x, batch: global_sort_pool(x, batch, k=self.hparams.sort_pool_k)
         else:
             raise ValueError(f"Unsupported pooling_fn: {pooling_fn_str}")
 
     def forward(self, data):
-        data = self.edge_tf(data)
+        # Only apply edge transform if edge parameters are specified
+        if self.hparams.edge_top is not None or self.hparams.edge_tsh is not None:
+            data = self.edge_tf(data)
+        
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        # Edge dropout
-        edge_index, _ = dropout_edge(
-            edge_index,
-            p=self.hparams.edge_dropout,
-            force_undirected=True,
-            training=self.training
-        )
+        # Edge dropout (only if edge_index exists)
+        if edge_index is not None:
+            edge_index, _ = dropout_edge(
+                edge_index,
+                p=self.hparams.edge_dropout,
+                force_undirected=True,
+                training=self.training
+            )
+        
         # GNN layers
         for i, (conv, norm) in enumerate(zip(self.convs, self.norms)):
             x_residual = x
@@ -191,8 +204,8 @@ class LightningGNN(pl.LightningModule):
             metrics=False,
             plot=True,
             display=True,
-            save_confusion_path=results_dir / "confusion_matrix.png",
-            save_report_path=results_dir / "classification_report.json",
+            save_confusion_path=str(results_dir / "confusion_matrix.png"),
+            save_report_path=str(results_dir / "classification_report.json"),
         )
 
     def configure_optimizers(self):

@@ -16,8 +16,6 @@ class BatchEdgeListTransform(BaseTransform):
         if top is not None and tsh is not None:
             raise ValueError("Please specify either 'top' or 'tsh', but not both.")
         if top is None and tsh is None:
-            # If both parameters are None, the transform acts as a no-op (pass-through)
-            # as long as `edge_index` is already present in the data object.
             pass
 
         if top is not None and not (0.0 < top <= 1.0):
