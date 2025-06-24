@@ -74,7 +74,13 @@ class BatchEdgeListTransform(BaseTransform):
             dst = (i_sel + offset).flatten()
 
         
-        batch.edge_index = torch.stack((src, dst), dim=0)
+        edge_index = torch.stack((src, dst), dim=0)
+        # Ensure undirected edges by adding reverse directions
+        rev_edge_index = edge_index[[1, 0], :]
+        batch.edge_index = torch.cat((edge_index, rev_edge_index), dim=1)
+        
+        # Remove potential duplicate edges (optional but safer)
+        batch.edge_index = torch.unique(batch.edge_index, dim=1)
         return batch
     
 
