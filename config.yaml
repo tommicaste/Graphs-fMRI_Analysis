@@ -1,17 +1,17 @@
 seed: 23
-save_dir: first_run
+save_dir: /home/tcastellani/projects/first_run
 
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
-  batch_size: 24
+  batch_size: 32
   num_workers: 4
-  split: [0.6, 0.20, 0.20]
+  split: [0.7, 0.20, 0.10]
   augment:
-    strategy: upsample
-    proportion: 0.6
+    strategy: null
+    proportion: null
   edge:
-    tsh: null
-    top: 0.10
+    tsh: 0.0
+    top: null
 
 models:
   - name: gnn_sage
@@ -21,26 +21,29 @@ models:
       hidden_channels: 64
       num_layers: 3
       dropout: 0.5
-      edge_dropout: 0.1
+      edge_dropout: 0.0          
       num_classes: 4
       mlp_hidden: [64, 32]
-      lr: 2.3e-3
-      wd: 1.0e-3
+      lr: 1.0e-5                 
+      wd: 5.0e-4                 
       gnn_layer: SAGEConv
-      pooling_fn: sort
-      residual_connections: true
+      pooling_fn: mean
+      sort_pool_k: 10
+      residual_connections: true 
       loss_type: cross_entropy
+      conv1d_out: 128
+      conv1d_kernel_size: 5
     trainer:
-      max_epochs: 50
-      accelerator: gpu
+      max_epochs: 70            
+      accelerator: auto
       devices: 1
       log_every_n_steps: 5
 
   - name: mlp_baseline
     architecture: mlp
     params:
-      input_dim: 294
-      hidden_dims: [256, 128, 64]
+      input_dim: 347
+      hidden_dims: [64, 64]
       dropout: 0.3
       num_classes: 4
       lr: 1.0e-3
@@ -53,11 +56,11 @@ models:
   - name: logistic_reg
     architecture: logistic
     params:
-      input_dim: 294
+      input_dim: 347
       num_classes: 4
       lr: 5.0e-3
-      loss_type: weighted_cross_entropy
+      loss_type: cross_entropy
     trainer:
-      max_epochs: 20
+      max_epochs: 40
       accelerator: auto
       devices: 1

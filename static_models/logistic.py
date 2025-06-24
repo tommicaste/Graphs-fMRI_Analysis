@@ -68,12 +68,12 @@ class LightningLogisticRegression(pl.LightningModule):
         loss = self.criterion(logits, batch.y)
         self.train_acc.update(logits, batch.y)
         self.train_bacc.update(logits, batch.y)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
+        self.log("train_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
         return loss
 
     def on_train_epoch_end(self):
         self.log("train_acc",  self.train_acc.compute(),  prog_bar=True)
-        self.log("train_bacc", self.train_bacc.compute(), prog_bar=False)
+        self.log("train_bacc", self.train_bacc.compute(), prog_bar=True)
         self.train_acc.reset()
         self.train_bacc.reset()
 
@@ -83,7 +83,7 @@ class LightningLogisticRegression(pl.LightningModule):
         loss = self.criterion(logits, batch.y)
         self.val_acc.update(logits, batch.y)
         self.val_bacc.update(logits, batch.y)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
+        self.log("val_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
 
     def on_validation_epoch_end(self):
         self.log("val_acc",  self.val_acc.compute(),  prog_bar=True)

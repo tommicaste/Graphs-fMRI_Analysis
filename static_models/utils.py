@@ -42,7 +42,7 @@ def evaluate_classification(
         if plot:
             plt.show()
         plt.close(fig)
-    rep_dict = classification_report(y_true, y_pred, output_dict=True, zero_division='0')
+    rep_dict = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
     if metrics:
         print(f"Accuracy         : {acc:.4f}")
         print(f"Balanced accuracy: {bacc:.4f}")

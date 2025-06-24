@@ -92,12 +92,16 @@ def train_model(
     # Provide sensible defaults for GNN specific arguments if missing ---------
     if model_cls is LightningGNN:
         # default GNNLayer
-        model_kwargs.setdefault("GNNLayer", __import__("torch_geometric.nn").torch_geometric.nn.SAGEConv)  # type: ignore[index]
+        model_kwargs.setdefault("GNNLayer", __import__("torch_geometric.nn").torch_geometric.nn.SAGEConv)
         model_kwargs.setdefault("mlp_hidden", [64, 32])
         model_kwargs.setdefault("input_dim", 347)
         model_kwargs.setdefault("hidden_channels", 32)
         model_kwargs.setdefault("num_layers", 3)
         model_kwargs.setdefault("num_classes", 4)
+        # new sort-pool & Conv1d defaults
+        model_kwargs.setdefault("sort_pool_k", 10)
+        model_kwargs.setdefault("conv1d_out", 128)
+        model_kwargs.setdefault("conv1d_kernel_size", 5)
     elif model_cls is LightningMLP:
         model_kwargs.setdefault("hidden_dims", [128, 64])
         model_kwargs.setdefault("input_dim", 347)

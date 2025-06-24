@@ -32,7 +32,9 @@ class LightningGNN(pl.LightningModule):
         class_weights: torch.Tensor | None = None,
         residual_connections: bool = False,
         pooling_fn: str = 'mean',
-        sort_pool_k: int = 10
+        sort_pool_k: int = 10,
+        conv1d_out: int = 128,
+        conv1d_kernel_size: int = 5
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -46,8 +48,22 @@ class LightningGNN(pl.LightningModule):
         )
         self.pool = self._configure_pooling()
         if pooling_fn == 'sort':
-            mlp_input_dim = sort_pool_k * hidden_channels
+            # Store k so we can reshape in forward
+            self.sort_pool_k = sort_pool_k
+
+            # 1-D convolution hyper-parameters -------------
+            self.conv1d_out = conv1d_out
+            self.conv1d = nn.Conv1d(
+                in_channels=hidden_channels,
+                out_channels=self.conv1d_out,
+                kernel_size=conv1d_kernel_size,
+                padding=conv1d_kernel_size // 2,   # same-padding keeps length → k
+            )
+            self.global_pool_1d = nn.AdaptiveMaxPool1d(1)
+
+            mlp_input_dim = self.conv1d_out
         else:
+            self.sort_pool_k = None
             mlp_input_dim = hidden_channels
         layers: list[nn.Module] = []
         in_dim = mlp_input_dim
@@ -122,6 +138,16 @@ class LightningGNN(pl.LightningModule):
             dropout = getattr(self.hparams, 'dropout', 0.0)
             x = F.dropout(x, p=dropout, training=self.training)
         x = self.pool(x, batch)
+
+    
+        if self.sort_pool_k is not None:
+            k = self.sort_pool_k
+            x = x.view(x.size(0), k, -1)  
+            x = x.transpose(1, 2)         
+            x = F.relu(self.conv1d(x))    
+            x = self.global_pool_1d(x)    
+            x = x.squeeze(-1)             
+
         return self.mlp(x)
 
     def training_step(self, batch, _):
@@ -129,12 +155,12 @@ class LightningGNN(pl.LightningModule):
         loss = self.criterion(logits, batch.y)
         self.train_acc.update(logits, batch.y)
         self.train_bacc.update(logits, batch.y)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
+        self.log("train_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
         return loss
 
     def on_train_epoch_end(self):
         self.log("train_acc",  self.train_acc.compute(),  prog_bar=True)
-        self.log("train_bacc", self.train_bacc.compute(), prog_bar=False)
+        self.log("train_bacc", self.train_bacc.compute(), prog_bar=True)
         self.train_acc.reset()
         self.train_bacc.reset()
 
@@ -143,7 +169,7 @@ class LightningGNN(pl.LightningModule):
         loss = self.criterion(logits, batch.y)
         self.val_acc.update(logits, batch.y)
         self.val_bacc.update(logits, batch.y)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
+        self.log("val_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
 
     def on_validation_epoch_end(self):
         self.log("val_acc",  self.val_acc.compute(), prog_bar=True)
@@ -162,11 +188,11 @@ class LightningGNN(pl.LightningModule):
         self.test_bacc.update(logits, batch.y)
         self.test_logits.append(logits.cpu())
         self.test_labels.append(batch.y.cpu())
-        self.log("test_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
+        self.log("test_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
         return loss
 
     def on_test_epoch_end(self):
-        self.log("test_acc",  self.test_acc.compute(),  prog_bar=True)
+        self.log("test_acc",  self.test_acc.compute(),  prog_bar=False)
         self.log("test_bacc", self.test_bacc.compute(), prog_bar=True)
         self.test_acc.reset()
         self.test_bacc.reset()
