@@ -1,35 +1,37 @@
 import random
 import copy
 from collections import defaultdict
-import random
 import torch
 import numpy as np
-from collections import defaultdict
 from torch_geometric.data import Data
 from tqdm import tqdm
 
 
 def augment_upsample(data_list, proportion=0.5):
     """
-    Upsample training split to reach proportion * (size of the largest class) for each underepresented class.
+    Upsample training split to reach a target proportion of the largest class for each underrepresented class.
+
+    Args:
+        data_list (list): List of Data objects.
+        proportion (float): Proportion of the largest class to upsample to (0 < proportion <= 1).
+
+    Returns:
+        list: Original and synthetic upsampled Data objects.
     """
     assert 0 < proportion <= 1
 
-    # Mark all originals as non-synthetic
     for d in data_list:
         d.metadata['synthetic'] = False
 
-    # Group training samples by class label
     train_by_class = defaultdict(list)
     for d in data_list:
         if d.metadata.get('split') == 'train':
             cls = int(d.y.item())
             train_by_class[cls].append(d)
 
-    # Determine target count based on the largest class
-    counts    = {cls: len(items) for cls, items in train_by_class.items()}
+    counts = {cls: len(items) for cls, items in train_by_class.items()}
     max_count = max(counts.values(), default=0)
-    target    = int(max_count * proportion)
+    target = int(max_count * proportion)
 
     augmented = []
     for cls, examples in train_by_class.items():
@@ -37,14 +39,12 @@ def augment_upsample(data_list, proportion=0.5):
         if n_current < target:
             n_needed = target - n_current
             for _ in range(n_needed):
-                # Deep-copy a random example and mark it synthetic
                 original = random.choice(examples)
                 new_example = copy.deepcopy(original)
                 new_example.metadata['synthetic'] = True
                 new_example.metadata['split'] = 'train'
                 augmented.append(new_example)
 
-    # Return combined list (originals + synthetic upsamples)
     return data_list + augmented
 
 def augment_interpolate(
@@ -53,30 +53,35 @@ def augment_interpolate(
     verbose: bool = True,
 ):
     """
-    Interpolate between consecutive training samples to balance classes
-    by `proportion` * (size of largest class).
+    Interpolate between consecutive training samples to balance classes by a target proportion of the largest class.
+
+    Args:
+        data_list (list): List of Data objects.
+        proportion (float): Proportion of the largest class to interpolate to (0 < proportion <= 1).
+        verbose (bool): Whether to show progress bars.
+
+    Returns:
+        list: Original and synthetic interpolated Data objects.
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
-    # Mark originals as non synthetic
     for d in data_list:
         assert torch.is_tensor(d.x) and torch.is_tensor(d.y)
         assert torch.isfinite(d.x).all(), f"NaNs in x for {d.metadata}"
-        assert (d.x != 0).all(),          f"Zeros in x for {d.metadata}"
+        assert (d.x != 0).all(), f"Zeros in x for {d.metadata}"
         d.metadata["synthetic"] = False
 
-    # Group training samples by class and by patient
     train_by_class = defaultdict(list)
     for d in data_list:
         if d.metadata.get("split") == "train":
             train_by_class[int(d.y.item())].append(d)
 
     real_counts = {cls: len(lst) for cls, lst in train_by_class.items()}
-    max_count   = max(real_counts.values(), default=0)
-    targets     = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
+    max_count = max(real_counts.values(), default=0)
+    targets = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # Pre compute patient wise ordered gaps 
+    # Precompute patient-wise ordered gaps
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -88,18 +93,17 @@ def augment_interpolate(
             pairs.extend(zip(seq, seq[1:]))
         gaps_per_class[cls] = pairs
 
-    # Project matrix to symmetric, PSD
     def project_to_psd(C: torch.Tensor) -> torch.Tensor:
+        """Project a matrix to the nearest symmetric positive semi-definite matrix."""
         C = (C + C.T) / 2
         eigvals, eigvecs = torch.linalg.eigh(C)
         eigvals.clamp_(min=0)
-        C_psd  = eigvecs @ torch.diag(eigvals) @ eigvecs.T
-        D      = torch.sqrt(torch.diag(C_psd) + 1e-8)
-        C_psd  = C_psd / D[:, None] / D[None, :]
+        C_psd = eigvecs @ torch.diag(eigvals) @ eigvecs.T
+        D = torch.sqrt(torch.diag(C_psd) + 1e-8)
+        C_psd = C_psd / D[:, None] / D[None, :]
         C_psd.fill_diagonal_(1.0)
         return C_psd.clamp_(-1, 1)
 
-    # Interpolation loop
     synthetic_data = []
     outer_iter = tqdm(
         synth_needs.items(),
@@ -134,14 +138,13 @@ def augment_interpolate(
                 continue
             s1, s2 = d1.metadata["segment"], d2.metadata["segment"]
 
-            # vectorized alpha values → interpolate in one go
             alphas = torch.linspace(1, n_interp, n_interp, device=d1.x.device) / (n_interp + 1)
             Cs_interp = torch.stack([(1 - a) * d1.x + a * d2.x for a in alphas])
 
             for alpha, C_interp in zip(alphas, Cs_interp):
                 new_d = Data(
                     y=d1.y.clone(),
-                    x=project_to_psd(C_interp),       
+                    x=project_to_psd(C_interp),
                     metadata={
                         **d1.metadata,
                         "segment": (1 - alpha.item()) * s1 + alpha.item() * s2,
@@ -158,29 +161,34 @@ def augment_geodesic(
     verbose: bool = True,
 ):
     """
-    Interpolate geodetically between consecutive training samples to balance classes
-    by `proportion` * (size of largest class).
+    Interpolate geodetically between consecutive training samples to balance classes by a target proportion of the largest class.
+
+    Args:
+        data_list (list): List of Data objects.
+        proportion (float): Proportion of the largest class to interpolate to (0 < proportion <= 1).
+        verbose (bool): Whether to show progress bars.
+
+    Returns:
+        list: Original and synthetic geodesically interpolated Data objects.
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
-    # Mark originals as non synthetic
     for d in data_list:
         assert torch.is_tensor(d.x) and torch.is_tensor(d.y)
         assert torch.isfinite(d.x).all(), f"NaNs in x for {d.metadata}"
         d.metadata["synthetic"] = False
 
-    # Group training samples by class and by patient
     train_by_class = defaultdict(list)
     for d in data_list:
         if d.metadata.get("split") == "train":
             train_by_class[int(d.y.item())].append(d)
 
     real_counts = {cls: len(lst) for cls, lst in train_by_class.items()}
-    max_count   = max(real_counts.values(), default=0)
-    targets     = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
+    max_count = max(real_counts.values(), default=0)
+    targets = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # Pre compute patient wise ordered gaps
+    # Precompute patient-wise ordered gaps
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -192,43 +200,33 @@ def augment_geodesic(
             pairs.extend(zip(seq, seq[1:]))
         gaps_per_class[cls] = pairs
 
-    # Project matrix to symmetric PSD just for robustness
     def project_to_psd(C: torch.Tensor) -> torch.Tensor:
+        """Project a matrix to the nearest symmetric positive semi-definite matrix."""
         C = (C + C.T) / 2
         eigvals, eigvecs = torch.linalg.eigh(C)
         eigvals.clamp_(min=0)
-        C_psd  = eigvecs @ torch.diag(eigvals) @ eigvecs.T
-        D      = torch.sqrt(torch.diag(C_psd) + 1e-8)
-        C_psd  = C_psd / D[:, None] / D[None, :]
+        C_psd = eigvecs @ torch.diag(eigvals) @ eigvecs.T
+        D = torch.sqrt(torch.diag(C_psd) + 1e-8)
+        C_psd = C_psd / D[:, None] / D[None, :]
         C_psd.fill_diagonal_(1.0)
         return C_psd.clamp_(-1, 1)
 
-    # Geodesic interpolation between two PSD matrices C1 and C2
     def geodesic(C1: torch.Tensor, C2: torch.Tensor, t: float) -> torch.Tensor:
         """
         Calculates the geodesic C(t) on the manifold of PSD matrices.
         Formula: C(t) = C1^1/2 * (C1^-1/2 * C2 * C1^-1/2)^t * C1^1/2
         """
         eigvals1, eigvecs1 = torch.linalg.eigh(C1)
-        eigvals1.clamp_(min=1e-8) 
-        
+        eigvals1.clamp_(min=1e-8)
         C1_sqrt = eigvecs1 @ torch.diag(eigvals1**0.5) @ eigvecs1.T
         C1_inv_sqrt = eigvecs1 @ torch.diag(eigvals1**-0.5) @ eigvecs1.T
-
-        # Log-Euclidean transport
         M = C1_inv_sqrt @ C2 @ C1_inv_sqrt
-        
-        # Matrix power via eigen-decomposition
         eigvalsM, eigvecsM = torch.linalg.eigh(M)
         eigvalsM.clamp_(min=0)
-        
         M_t = eigvecsM @ torch.diag(eigvalsM**t) @ eigvecsM.T
-
-        # Transport back
         C_t = C1_sqrt @ M_t @ C1_sqrt
         return C_t
 
-    # Main interpolation loop
     synthetic_data = []
     outer_iter = tqdm(
         synth_needs.items(),

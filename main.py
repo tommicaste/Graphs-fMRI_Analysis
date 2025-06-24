@@ -12,7 +12,6 @@ import torch
 import yaml
 from static_models.pipeline import train_model
 
-# Determine config path: CLI arg > default "config.yaml" next to this file
 if len(sys.argv) > 1:
     CONFIG_PATH = Path(sys.argv[1]).expanduser().resolve()
 else:
@@ -32,7 +31,7 @@ def _resolve_gnn_layer(layer_name: str):
 
 def _prepare_model_kwargs(arch: str, params: Dict[str, Any], data_cfg: Dict[str, Any]):
     """Process params dict: resolve layer strings, inject edge config."""
-    params = params.copy()  # don't mutate original
+    params = params.copy() 
 
     # Harmonise key name for GNN layer
     if arch == "gnn":
@@ -107,7 +106,7 @@ def main():
             accelerator=accelerator,
             devices=devices,
             log_every_n_steps=log_every_n_steps,
-            trainer_kwargs=trainer_cfg,  # remaining keys
+            trainer_kwargs=trainer_cfg, 
             seed=seed,
         )
         print("Test metrics:", metrics)

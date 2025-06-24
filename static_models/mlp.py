@@ -26,11 +26,11 @@ class LightningMLP(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # ─────────── feature flatten ───────────
+        # Feature flattening layer
         self.flatten = LowerTriFlattenBatch(input_dim)
         in_features = input_dim * (input_dim - 1) // 2
 
-        # ─────────── MLP head ───────────
+        # MLP classifier head
         layers: list[nn.Module] = []
         for h in hidden_dims:
             layers += [nn.Linear(in_features, h), nn.ReLU(), nn.Dropout(dropout)]
@@ -38,7 +38,7 @@ class LightningMLP(pl.LightningModule):
         layers.append(nn.Linear(in_features, num_classes))
         self.mlp = nn.Sequential(*layers)
 
-        # ─────────── loss ───────────
+        # Loss function
         if loss_type == "weighted_cross_entropy":
             if class_weights is None:
                 raise ValueError("class_weights must be provided for weighted_cross_entropy")
@@ -49,7 +49,7 @@ class LightningMLP(pl.LightningModule):
         else:
             raise ValueError(f"Unsupported loss_type: {loss_type}")
 
-        # ─────────── metrics ───────────
+        # Performance metrics
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.test_wacc  = MulticlassAccuracy(num_classes=num_classes, average="weighted")
@@ -65,12 +65,12 @@ class LightningMLP(pl.LightningModule):
         self.test_logits: list[torch.Tensor] = []
         self.test_labels: list[torch.Tensor] = []
 
-    # ─────────── forward ───────────
+    # Forward pass
     def forward(self, data):
         z = self.flatten(data)
         return self.mlp(z)
 
-    # ─────────── train / val / test steps – unchanged logic ───────────
+    # Training, validation, and test steps
     def training_step(self, batch, _):
         logits = self(batch)
         loss = self.criterion(logits, batch.y)
@@ -130,16 +130,16 @@ class LightningMLP(pl.LightningModule):
             metrics=False,
             plot=True,
             display=True,
-            save_confusion_path=results_dir / "confusion_matrix.png",
-            save_report_path=results_dir / "classification_report.json",
+            save_confusion_path=str(results_dir / "confusion_matrix.png"),
+            save_report_path=str(results_dir / "classification_report.json"),
         )
 
-    # ─────────── optimiser ───────────
+    # Optimizer configuration
     def configure_optimizers(self):
         return {
             "optimizer": torch.optim.AdamW(
                 self.parameters(),
-                lr=float(self.hparams.lr),
+                lr=float(getattr(self.hparams, 'lr', 1e-3)),
                 weight_decay=5e-3
             )
         }

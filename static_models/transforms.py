@@ -28,8 +28,7 @@ class BatchEdgeListTransform(BaseTransform):
         # Passthrough behaviour when no edge creation strategy is specified
         if self.top is None and self.tsh is None:
             if hasattr(batch, "edge_index"):
-                print("No edge creation strategy specified and `batch` has `edge_index`.")
-                return batch  # nothing to do
+                return batch
             else:
                 raise AttributeError(
                     "No edge creation strategy specified and `batch` lacks `edge_index`."

@@ -1,35 +1,21 @@
 seed: 23
 save_dir: first_run
 
-# -----------------------------------------------------------------------------
-# Data settings (shared by every model run)
-# -----------------------------------------------------------------------------
-
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
-  batch_size: 32
+  batch_size: 24
   num_workers: 4
-  split: [0.6, 0.20, 0.20]   # [train, val, test]
+  split: [0.6, 0.20, 0.20]
   augment:
-    strategy: upsample        # {upsample, interpolate, geodesic, null}
-    proportion: 0.6           # only used if strategy != null
+    strategy: upsample
+    proportion: 0.6
   edge:
-    tsh: null                 # correlation threshold (for fully-connected to sparse)
-    top: 0.10                 # top-k proportion of edges to keep              # {corr, coherence, ...}
-
-# -----------------------------------------------------------------------------
-# Define *any* number of models to train sequentially
-# Each entry must have:
-#   name         – unique identifier for logging / checkpoints
-#   architecture – one of {gnn, mlp, logistic} OR a dotted-path import string
-#   params       – constructor kwargs for the model class
-#   trainer      – PyTorch-Lightning Trainer kwargs (optional; overrides global)
-# -----------------------------------------------------------------------------
+    tsh: null
+    top: 0.10
 
 models:
-  # --- 1. Graph Neural Network ------------------------------------------------
   - name: gnn_sage
-    architecture: gnn              # mapped to static_models.gnn.LightningGNN
+    architecture: gnn
     params:
       input_dim: 347
       hidden_channels: 64
@@ -40,7 +26,7 @@ models:
       mlp_hidden: [64, 32]
       lr: 2.3e-3
       wd: 1.0e-3
-      gnn_layer: SAGEConv          # looked up in torch_geometric.nn
+      gnn_layer: SAGEConv
       pooling_fn: sort
       residual_connections: true
       loss_type: cross_entropy
@@ -50,9 +36,8 @@ models:
       devices: 1
       log_every_n_steps: 5
 
-  # --- 2. Multilayer Perceptron ----------------------------------------------
   - name: mlp_baseline
-    architecture: mlp              # mapped to static_models.mlp.LightningMLP
+    architecture: mlp
     params:
       input_dim: 294
       hidden_dims: [256, 128, 64]
@@ -65,9 +50,8 @@ models:
       accelerator: auto
       devices: 1
 
-  # --- 3. Logistic Regression -------------------------------------------------
   - name: logistic_reg
-    architecture: logistic         # mapped to static_models.logistic.LightningLogisticRegression
+    architecture: logistic
     params:
       input_dim: 294
       num_classes: 4

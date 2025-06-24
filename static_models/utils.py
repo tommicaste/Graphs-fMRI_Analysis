@@ -22,22 +22,15 @@ def evaluate_classification(
     save_report_path: str | None = None
 ):
     """
-    Compute standard and balanced accuracy metrics and optionally print them.
+    Compute standard and balanced accuracy metrics and optionally print, plot, or save them.
     """
-    # core scores
     acc  = accuracy_score(y_true, y_pred)
     bacc = balanced_accuracy_score(y_true, y_pred)
-
-    # determine full set of labels for correct confusion‐matrix shape
     if labels is None:
         labels = sorted(set(y_true) | set(y_pred))
-
-    # confusion matrices
     cm_raw = confusion_matrix(y_true, y_pred, labels=labels)
     with np.errstate(divide="ignore", invalid="ignore"):
         cm_share = np.nan_to_num(cm_raw / cm_raw.sum(axis=1, keepdims=True))
-
-    # optional plot / save confusion matrix (shares)
     if plot or save_confusion_path:
         disp = ConfusionMatrixDisplay(cm_share, display_labels=labels)
         fig, ax = plt.subplots(figsize=(6, 6))
@@ -49,18 +42,12 @@ def evaluate_classification(
         if plot:
             plt.show()
         plt.close(fig)
-
-    # full sklearn report dict (for saving/printing)
-    rep_dict = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
-
-    # print metrics if requested
+    rep_dict = classification_report(y_true, y_pred, output_dict=True, zero_division='0')
     if metrics:
         print(f"Accuracy         : {acc:.4f}")
         print(f"Balanced accuracy: {bacc:.4f}")
         print("Classification report:")
-        print(classification_report(y_true, y_pred, zero_division=0))
-
-    # save *everything* to JSON
+        print(classification_report(y_true, y_pred, zero_division='0'))
     if save_report_path:
         os.makedirs(os.path.dirname(save_report_path), exist_ok=True)
         json.dump({
@@ -69,7 +56,6 @@ def evaluate_classification(
             "confusion_matrix_share": cm_share.tolist(),
             "classification_report" : rep_dict
         }, open(save_report_path, "w"), indent=2)
-
     return {
         "accuracy"         : acc,
         "balanced_accuracy": bacc

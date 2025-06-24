@@ -8,10 +8,13 @@ from static_models.utils import evaluate_classification
 
 
 class LightningLogisticRegression(pl.LightningModule):
+    """
+    Logistic regression model for classification tasks, with support for weighted loss and PyTorch Lightning integration.
+    """
 
     def __init__(
         self,
-        input_dim: int,                      
+        input_dim: int,
         num_classes: int,
         lr: float = 1e-3,
         loss_type: str = "cross_entropy",
@@ -20,14 +23,14 @@ class LightningLogisticRegression(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # ─────────── Transform ───────────
+        # Feature flattening transform
         self.flatten = LowerTriFlattenBatch(input_dim)
         in_features = input_dim * (input_dim - 1) // 2
 
-        # ─────────── Linear head ───────────
+        # Linear classifier head
         self.clf = nn.Linear(in_features, num_classes)
 
-        # ─────────── Loss ───────────
+        # Loss function
         if loss_type == "weighted_cross_entropy":
             if class_weights is None:
                 raise ValueError("class_weights must be provided for weighted_cross_entropy")
@@ -38,7 +41,7 @@ class LightningLogisticRegression(pl.LightningModule):
         else:
             raise ValueError(f"Unsupported loss_type: {loss_type}")
 
-        # ─────────── Metrics ───────────
+        # Performance metrics
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.test_wacc  = MulticlassAccuracy(num_classes=num_classes, average="weighted")
@@ -54,12 +57,12 @@ class LightningLogisticRegression(pl.LightningModule):
         self.test_logits: list[torch.Tensor] = []
         self.test_labels: list[torch.Tensor] = []
 
-    # ─────────── Forward ───────────
+    # Forward pass
     def forward(self, data):
         z = self.flatten(data)         # (B, input_dim(input_dim−1)//2)
         return self.clf(z)
 
-    # ─────────── Train ───────────
+    # Training methods
     def training_step(self, batch, _):
         logits = self(batch)
         loss = self.criterion(logits, batch.y)
@@ -74,7 +77,7 @@ class LightningLogisticRegression(pl.LightningModule):
         self.train_acc.reset()
         self.train_bacc.reset()
 
-    # ─────────── Validation ───────────
+    # Validation methods
     def validation_step(self, batch, _):
         logits = self(batch)
         loss = self.criterion(logits, batch.y)
@@ -88,7 +91,7 @@ class LightningLogisticRegression(pl.LightningModule):
         self.val_acc.reset()
         self.val_bacc.reset()
 
-    # ─────────── Test ───────────
+    # Test methods
     def on_test_epoch_start(self):
         self.test_logits.clear()
         self.test_labels.clear()
@@ -108,26 +111,23 @@ class LightningLogisticRegression(pl.LightningModule):
         self.log("test_bacc", self.test_bacc.compute(), prog_bar=True)
         self.test_acc.reset()
         self.test_bacc.reset()
-
         logits = torch.cat(self.test_logits).argmax(1).numpy()
         labels = torch.cat(self.test_labels).numpy()
-
         results_dir = Path(self.trainer.default_root_dir) / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
-
         evaluate_classification(
             labels,
             logits,
             metrics=False,
             plot=True,
             display=True,
-            save_confusion_path=results_dir / "confusion_matrix.png",
-            save_report_path=results_dir / "classification_report.json",
+            save_confusion_path=str(results_dir / "confusion_matrix.png"),
+            save_report_path=str(results_dir / "classification_report.json"),
         )
 
-    # ─────────── Optimizer ───────────
+    # Optimizer configuration
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
-            self.parameters(), lr=float(self.hparams.lr), weight_decay=5e-3
+            self.parameters(), lr=float(getattr(self.hparams, 'lr', 1e-3)), weight_decay=5e-3
         )
         return {"optimizer": optimizer}

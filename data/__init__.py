@@ -1,3 +1,9 @@
+"""
+sleepstages.data
+
+This package provides data loading, augmentation, splitting, and graph construction utilities for sleep stage analysis.
+"""
+
 from .augment import *
 from .graph import *
 from .split import *

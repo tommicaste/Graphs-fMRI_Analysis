@@ -11,6 +11,9 @@ from torch_geometric.utils import dropout_edge
 
 
 class LightningGNN(pl.LightningModule):
+    """
+    General Graph Neural Network (GNN) LightningModule supporting configurable backbone, pooling, and MLP head.
+    """
     def __init__(
         self,
         input_dim: int,
@@ -32,13 +35,8 @@ class LightningGNN(pl.LightningModule):
         sort_pool_k: int = 10
     ):
         super().__init__()
-        # Saves all hyperparameters passed to __init__
         self.save_hyperparameters()
-
-        self.edge_tf = BatchEdgeListTransform(top=edge_top,
-                                              tsh=edge_tsh)
-
-        # ─────────── GNN backbone ───────────
+        self.edge_tf = BatchEdgeListTransform(top=edge_top, tsh=edge_tsh)
         self.convs = nn.ModuleList(
             [GNNLayer(input_dim, hidden_channels)]
             + [GNNLayer(hidden_channels, hidden_channels) for _ in range(num_layers - 1)]
@@ -46,17 +44,11 @@ class LightningGNN(pl.LightningModule):
         self.norms = nn.ModuleList(
             [nn.LayerNorm(hidden_channels) for _ in range(num_layers)]
         )
-        
-        # ─────────── Pooling Layer ───────────
         self.pool = self._configure_pooling()
-
-        # ─────────── MLP head ───────────
-        # Calculate input dimension for MLP based on pooling function (inline logic)
         if pooling_fn == 'sort':
             mlp_input_dim = sort_pool_k * hidden_channels
         else:
             mlp_input_dim = hidden_channels
-        
         layers: list[nn.Module] = []
         in_dim = mlp_input_dim
         for h in mlp_hidden:
@@ -64,30 +56,24 @@ class LightningGNN(pl.LightningModule):
             in_dim = h
         layers.append(nn.Linear(in_dim, num_classes))
         self.mlp = nn.Sequential(*layers)
-
         self.criterion = self._configure_loss()
-        
-        # ─────────── Metrics ───────────
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.test_wacc  = MulticlassAccuracy(num_classes=num_classes, average="weighted")
-
         self.train_bacc = MulticlassAccuracy(num_classes=num_classes, average="macro")
         self.val_bacc   = MulticlassAccuracy(num_classes=num_classes, average="macro")
         self.test_bacc  = MulticlassAccuracy(num_classes=num_classes, average="macro")
-
         self.train_acc = MulticlassAccuracy(num_classes=num_classes, average="micro")
         self.val_acc   = MulticlassAccuracy(num_classes=num_classes, average="micro")
         self.test_acc  = MulticlassAccuracy(num_classes=num_classes, average="micro")
-
         self.test_logits: list[torch.Tensor] = []
         self.test_labels: list[torch.Tensor] = []
 
     def _configure_loss(self):
-        """Helper function to set up the loss based on hyperparameters."""
-        loss_type = self.hparams.loss_type
+        """Set up the loss based on hyperparameters."""
+        loss_type = getattr(self.hparams, 'loss_type', 'cross_entropy')
         if loss_type == 'weighted_cross_entropy':
-            weights = self.hparams.class_weights
+            weights = getattr(self.hparams, 'class_weights', None)
             if weights is None:
                 raise ValueError("class_weights must be provided for weighted_cross_entropy")
             self.register_buffer("class_weights", weights)
@@ -96,10 +82,10 @@ class LightningGNN(pl.LightningModule):
             return nn.CrossEntropyLoss()
         else:
             raise ValueError(f"Unsupported loss_type: {loss_type}")
-            
+
     def _configure_pooling(self):
-        """Helper function to set up the pooling function based on hyperparameters."""
-        pooling_fn_str = self.hparams.pooling_fn
+        """Set up the pooling function based on hyperparameters."""
+        pooling_fn_str = getattr(self.hparams, 'pooling_fn', 'mean')
         if pooling_fn_str == 'mean':
             return global_mean_pool
         elif pooling_fn_str == 'sum':
@@ -107,40 +93,35 @@ class LightningGNN(pl.LightningModule):
         elif pooling_fn_str == 'max':
             return global_max_pool
         elif pooling_fn_str == 'sort':
-            return lambda x, batch: global_sort_pool(x, batch, k=self.hparams.sort_pool_k)
+            sort_pool_k = getattr(self.hparams, 'sort_pool_k', 10)
+            return lambda x, batch: global_sort_pool(x, batch, k=sort_pool_k)
         else:
             raise ValueError(f"Unsupported pooling_fn: {pooling_fn_str}")
 
     def forward(self, data):
-        # Only apply edge transform if edge parameters are specified
-        if self.hparams.edge_top is not None or self.hparams.edge_tsh is not None:
+        edge_top = getattr(self.hparams, 'edge_top', None)
+        edge_tsh = getattr(self.hparams, 'edge_tsh', None)
+        if edge_top is not None or edge_tsh is not None:
             data = self.edge_tf(data)
-        
         x, edge_index, batch = data.x, data.edge_index, data.batch
-
-        # Edge dropout (only if edge_index exists)
+        edge_dropout = getattr(self.hparams, 'edge_dropout', 0.0)
         if edge_index is not None:
             edge_index, _ = dropout_edge(
                 edge_index,
-                p=self.hparams.edge_dropout,
+                p=edge_dropout,
                 force_undirected=True,
                 training=self.training
             )
-        
-        # GNN layers
         for i, (conv, norm) in enumerate(zip(self.convs, self.norms)):
             x_residual = x
             x = conv(x, edge_index)
             x = norm(x).relu()
-            
-            if self.hparams.residual_connections and i > 0:
+            residual_connections = getattr(self.hparams, 'residual_connections', False)
+            if residual_connections and i > 0:
                 x = x + x_residual
-            
-            # Dropout
-            x = F.dropout(x, p=self.hparams.dropout, training=self.training)
-        
-        #Pooling    
-        x = self.pool(x, batch) 
+            dropout = getattr(self.hparams, 'dropout', 0.0)
+            x = F.dropout(x, p=dropout, training=self.training)
+        x = self.pool(x, batch)
         return self.mlp(x)
 
     def training_step(self, batch, _):
@@ -165,10 +146,8 @@ class LightningGNN(pl.LightningModule):
         self.log("val_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
 
     def on_validation_epoch_end(self):
-        self.log("val_acc",  self.val_acc.compute(),
-                 prog_bar=True)
-        self.log("val_bacc", self.val_bacc.compute(),
-                 prog_bar=True)         
+        self.log("val_acc",  self.val_acc.compute(), prog_bar=True)
+        self.log("val_bacc", self.val_bacc.compute(), prog_bar=True)
         self.val_acc.reset()
         self.val_bacc.reset()
 
@@ -191,13 +170,10 @@ class LightningGNN(pl.LightningModule):
         self.log("test_bacc", self.test_bacc.compute(), prog_bar=True)
         self.test_acc.reset()
         self.test_bacc.reset()
-
         logits = torch.cat(self.test_logits).argmax(1).numpy()
         labels = torch.cat(self.test_labels).numpy()
-
         results_dir = Path(self.trainer.default_root_dir) / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
-
         evaluate_classification(
             labels,
             logits,
@@ -209,12 +185,11 @@ class LightningGNN(pl.LightningModule):
         )
 
     def configure_optimizers(self):
+        lr = float(getattr(self.hparams, 'lr', 1e-3))
+        wd = float(getattr(self.hparams, 'wd', 1e-3))
         optimizer = torch.optim.AdamW(
             self.parameters(), 
-            lr=float(self.hparams.lr), 
-            weight_decay = float(self.hparams.wd)
+            lr=lr, 
+            weight_decay=wd
         )
-        
-        return {
-            "optimizer": optimizer,
-            }
+        return {"optimizer": optimizer}

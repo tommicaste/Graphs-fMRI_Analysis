@@ -66,7 +66,8 @@ def train_model(
     log_every_n_steps: int = 10,
     trainer_kwargs: Optional[dict] = None,
 ):
-    """Train & test any registered Lightning model in *one* call.
+    """
+    Train & test any registered Lightning model in one call.
 
     Parameters
     ----------
