@@ -10,36 +10,28 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch import nn
 
-# Data loading
 from data import load_data
 
-# Model
 from static_models.gnn import LightningGNN
+from static_models.gnn import NeurographGNN 
 
-# ---------------------------------------------------------------------------
-# Public API ----------------------------------------------------------------
-# ---------------------------------------------------------------------------
-
-# ONLY ONE entry-point is exposed – easy to maintain.
 __all__ = ["train_model"]
 
-# ----------------------------------------------------------------------------
-# Generic training utility ----------------------------------------------------
-# ----------------------------------------------------------------------------
 
-from static_models.mlp import LightningMLP  # noqa: E402
-from static_models.logistic import LightningLogisticRegression  # noqa: E402
+from static_models.mlp import LightningMLP 
+from static_models.logistic import LightningLogisticRegression
 
 MODEL_REGISTRY: dict[str, type[pl.LightningModule]] = {
     "gnn": LightningGNN,
     "mlp": LightningMLP,
     "logistic": LightningLogisticRegression,
+    "neurograph": NeurographGNN,
 }
 
 
 def _default_save_dir(run_name: str) -> Path:
     """Utility that returns a run directory under <project_root>/run/<run_name>."""
-    root = Path(__file__).resolve().parent.parent  # .. / sleepstages
+    root = Path(__file__).resolve().parent.parent 
     return root / "run" / run_name
 
 
@@ -49,7 +41,7 @@ def train_model(
     run_name: str,
     data_path: str,
     model_kwargs: Optional[dict] = None,
-    # ---------- data args (see data.load_data) ----------
+
     augment_strategy: Optional[str] = None,
     augment_proportion: Optional[float] = None,
     batch_size: int = 64,
@@ -57,7 +49,7 @@ def train_model(
     train_ratio: float = 0.70,
     val_ratio: float = 0.20,
     test_ratio: float = 0.10,
-    # ---------- trainer / bookkeeping ----------
+
     save_dir: Optional[Union[str, Path]] = None,
     seed: int = 123,
     max_epochs: int = 50,
@@ -66,42 +58,35 @@ def train_model(
     log_every_n_steps: int = 10,
     trainer_kwargs: Optional[dict] = None,
 ):
-    """
-    Train & test any registered Lightning model in one call.
 
-    Parameters
-    ----------
-    model : str | pl.LightningModule subclass
-        Either a key in {"gnn", "mlp", "logistic"} or a custom subclass.
-    model_kwargs : dict, optional
-        Passed directly to the model constructor (after some smart defaults).
-    All other arguments are identical to `train_gnn`, but apply to every model.
-    """
-
-    # 1. resolve model class ---------------------------------------------------
+    
     if isinstance(model, str):
         if model not in MODEL_REGISTRY:
             raise ValueError(f"Unknown model key '{model}'. Available: {list(MODEL_REGISTRY)}")
         model_cls = MODEL_REGISTRY[model]
     else:
-        model_cls = model  # type: ignore[assignment]
+        model_cls = model  
 
     if model_kwargs is None:
         model_kwargs = {}
 
-    # Provide sensible defaults for GNN specific arguments if missing ---------
+    
     if model_cls is LightningGNN:
-        # default GNNLayer
+        
         model_kwargs.setdefault("GNNLayer", __import__("torch_geometric.nn").torch_geometric.nn.SAGEConv)
         model_kwargs.setdefault("mlp_hidden", [64, 32])
         model_kwargs.setdefault("input_dim", 347)
         model_kwargs.setdefault("hidden_channels", 32)
         model_kwargs.setdefault("num_layers", 3)
         model_kwargs.setdefault("num_classes", 4)
-        # new sort-pool & Conv1d defaults
-        model_kwargs.setdefault("sort_pool_k", 10)
-        model_kwargs.setdefault("conv1d_out", 128)
-        model_kwargs.setdefault("conv1d_kernel_size", 5)
+    elif model_cls is NeurographGNN:
+        model_kwargs.setdefault("GNNLayer", __import__("torch_geometric.nn").torch_geometric.nn.SAGEConv)
+        model_kwargs.setdefault("hidden_channels", 64)
+        model_kwargs.setdefault("hidden", 128)
+        model_kwargs.setdefault("input_dim", 347)
+        model_kwargs.setdefault("num_layers", 2)
+        model_kwargs.setdefault("num_classes", 4)
+        model_kwargs.setdefault("loss_type", "cross_entropy")
     elif model_cls is LightningMLP:
         model_kwargs.setdefault("hidden_dims", [128, 64])
         model_kwargs.setdefault("input_dim", 347)
@@ -110,13 +95,13 @@ def train_model(
         model_kwargs.setdefault("input_dim", 347)
         model_kwargs.setdefault("num_classes", 4)
 
-    # 2. seed everything -------------------------------------------------------
+    
     pl.seed_everything(seed, workers=True)
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
 
-    # 3. data -----------------------------------------------------------------
+    
     train_loader, val_loader, test_loader, weight_dict = load_data(
         data_path,
         batch_size=batch_size,
@@ -128,14 +113,13 @@ def train_model(
         augment_proportion=augment_proportion,
     )
 
-    # 4. auto-inject class_weights if needed ----------------------------------
+    
     if model_kwargs.get("loss_type") == "weighted_cross_entropy" and "class_weights" not in model_kwargs:
         model_kwargs["class_weights"] = weight_dict["class_weights"]
 
-    # 5. instantiate model ----------------------------------------------------
-    model_instance = model_cls(**model_kwargs)  # type: ignore[arg-type]
+    
+    model_instance = model_cls(**model_kwargs)
 
-    # 6. trainer / callbacks ---------------------------------------------------
     if save_dir is None:
         save_dir = _default_save_dir(run_name)
     save_dir = Path(save_dir)
@@ -164,12 +148,8 @@ def train_model(
         **trainer_kwargs,
     )
 
-    # 7. fit & test -----------------------------------------------------------
+    
     trainer.fit(model_instance, train_loader, val_loader)
     test_metrics = trainer.test(ckpt_path="best", dataloaders=test_loader)
 
     return trainer, test_metrics
-
-# ----------------------------------------------------------------------------
-# Remove obsolete wrappers to enforce a *single* API. -------------------------
-# ----------------------------------------------------------------------------

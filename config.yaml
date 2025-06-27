@@ -1,43 +1,50 @@
 seed: 23
-save_dir: /home/tcastellani/projects/geodesic_run
+save_dir: /home/tcastellani/projects/run
 
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
   batch_size: 48
   num_workers: 4
-  split: [0.7, 0.20, 0.10]
+  split: [0.6, 0.20, 0.20]
   augment:
-    strategy: geodesic
-    proportion: 0.32114215381139327
+    strategy: null
+    proportion: null
   edge:
     tsh: null
     top: null
 
 models:
-  - name: gnn_sage_no_edge_index
+  - name: gnn_sage
     architecture: gnn
     params:
       input_dim: 347
       hidden_channels: 64
       num_layers: 1
-      dropout: 0.5
-      edge_dropout: 0.1          
       num_classes: 4
       mlp_hidden: [64, 32]
-      lr: 0.007565864777063054                 
-      wd: 5.30605137534844e-05                
-      gnn_layer: GCNConv
+      lr: 0.005                
+      wd: 0.00005               
+      gnn_layer: SAGEConv
       pooling_fn: mean
-      sort_pool_k: 10
       residual_connections: true 
-      loss_type: cross_entropy
-      conv1d_out: 128
-      conv1d_kernel_size: 5
+      loss_type: weighted_cross_entropy
     trainer:
-      max_epochs: 70            
+      max_epochs: 50           
       accelerator: auto
       devices: 1
       log_every_n_steps: 5
 
-
-
+  - name: mlp_baseline
+    architecture: mlp
+    params:
+      input_dim: 347
+      hidden_dims: [64, 64]
+      num_classes: 4
+      lr: 0.001
+      wd: 0.001
+      loss_type: cross_entropy
+    trainer:
+      max_epochs: 50
+      accelerator: auto
+      devices: 1
+      log_every_n_steps: 10

@@ -20,7 +20,6 @@ class LightningMLP(pl.LightningModule):
         num_classes: int,
         lr: float = 1e-3,
         wd: float = 1e-3,
-        dropout: float = 0.0,
         loss_type: str = "cross_entropy",
         class_weights: torch.Tensor | None = None,
     ):
@@ -34,7 +33,7 @@ class LightningMLP(pl.LightningModule):
         # MLP classifier head
         layers: list[nn.Module] = []
         for h in hidden_dims:
-            layers += [nn.Linear(in_features, h), nn.ReLU(), nn.Dropout(dropout)]
+            layers += [nn.Linear(in_features, h), nn.ReLU(), nn.Dropout(0.5)]
             in_features = h
         layers.append(nn.Linear(in_features, num_classes))
         self.mlp = nn.Sequential(*layers)
@@ -71,7 +70,6 @@ class LightningMLP(pl.LightningModule):
         z = self.flatten(data)
         return self.mlp(z)
 
-    # Training, validation, and test steps
     def training_step(self, batch, _):
         logits = self(batch)
         loss = self.criterion(logits, batch.y)
@@ -94,7 +92,7 @@ class LightningMLP(pl.LightningModule):
         self.log("val_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
 
     def on_validation_epoch_end(self):
-        self.log("val_acc",  self.val_acc.compute(),  prog_bar=True)
+        self.log("val_acc",  self.val_acc.compute(), prog_bar=True)
         self.log("val_bacc", self.val_bacc.compute(), prog_bar=True)
         self.val_acc.reset()
         self.val_bacc.reset()
@@ -110,21 +108,18 @@ class LightningMLP(pl.LightningModule):
         self.test_bacc.update(logits, batch.y)
         self.test_logits.append(logits.cpu())
         self.test_labels.append(batch.y.cpu())
-        self.log("test_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
+        self.log("test_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
         return loss
 
     def on_test_epoch_end(self):
-        self.log("test_acc",  self.test_acc.compute(),  prog_bar=True)
+        self.log("test_acc",  self.test_acc.compute(),  prog_bar=False)
         self.log("test_bacc", self.test_bacc.compute(), prog_bar=True)
         self.test_acc.reset()
         self.test_bacc.reset()
-
         logits = torch.cat(self.test_logits).argmax(1).numpy()
         labels = torch.cat(self.test_labels).numpy()
-
         results_dir = Path(self.trainer.default_root_dir) / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
-
         evaluate_classification(
             labels,
             logits,
@@ -135,13 +130,12 @@ class LightningMLP(pl.LightningModule):
             save_report_path=str(results_dir / "classification_report.json"),
         )
 
-    # Optimizer configuration
     def configure_optimizers(self):
         lr = float(getattr(self.hparams, 'lr', 1e-3))
         wd = float(getattr(self.hparams, 'wd', 1e-3))
         optimizer = torch.optim.AdamW(
-            self.parameters(),
-            lr=lr,
-            weight_decay=wd,
+            self.parameters(), 
+            lr=lr, 
+            weight_decay=wd
         )
         return {"optimizer": optimizer}
