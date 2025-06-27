@@ -19,6 +19,7 @@ class LightningMLP(pl.LightningModule):
         hidden_dims: list[int],
         num_classes: int,
         lr: float = 1e-3,
+        wd: float = 1e-3,
         dropout: float = 0.0,
         loss_type: str = "cross_entropy",
         class_weights: torch.Tensor | None = None,
@@ -136,10 +137,11 @@ class LightningMLP(pl.LightningModule):
 
     # Optimizer configuration
     def configure_optimizers(self):
-        return {
-            "optimizer": torch.optim.AdamW(
-                self.parameters(),
-                lr=float(getattr(self.hparams, 'lr', 1e-3)),
-                weight_decay=5e-3
-            )
-        }
+        lr = float(getattr(self.hparams, 'lr', 1e-3))
+        wd = float(getattr(self.hparams, 'wd', 1e-3))
+        optimizer = torch.optim.AdamW(
+            self.parameters(),
+            lr=lr,
+            weight_decay=wd,
+        )
+        return {"optimizer": optimizer}

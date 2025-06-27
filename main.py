@@ -78,6 +78,10 @@ def main():
         arch = m["architecture"]
         params = _prepare_model_kwargs(arch, m.get("params", {}), data_cfg)
 
+        # Ensure weight decay is present for models that support it
+        if arch in {"gnn", "mlp"} and "wd" not in params:
+            params["wd"] = 1e-3  # sensible default
+
         trainer_cfg = m.get("trainer", {})
         max_epochs = trainer_cfg.pop("max_epochs", 50)
         accelerator = trainer_cfg.pop("accelerator", "auto")

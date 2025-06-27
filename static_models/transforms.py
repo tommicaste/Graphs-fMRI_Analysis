@@ -27,12 +27,14 @@ class BatchEdgeListTransform(BaseTransform):
     def __call__(self, batch):
         # Passthrough behaviour when no edge creation strategy is specified
         if self.top is None and self.tsh is None:
-            if hasattr(batch, "edge_index"):
+            # When an edge list already exists and is not None → leave it.
+            if hasattr(batch, "edge_index") and batch.edge_index is not None:
                 return batch
-            else:
-                raise AttributeError(
-                    "No edge creation strategy specified and `batch` lacks `edge_index`."
-                )
+
+            # Otherwise create an empty edge list with correct dtype/shape.
+            dev = batch.x.device if hasattr(batch, "x") and torch.is_tensor(batch.x) else torch.device("cpu")
+            batch.edge_index = torch.empty((2, 0), dtype=torch.long, device=dev)
+            return batch
 
         if not hasattr(batch, "x"):
             raise AttributeError(
@@ -75,12 +77,21 @@ class BatchEdgeListTransform(BaseTransform):
 
         
         edge_index = torch.stack((src, dst), dim=0)
-        # Ensure undirected edges by adding reverse directions
+
+        if edge_index.dtype != torch.long:
+            edge_index = edge_index.to(torch.long)
+
+        if edge_index.dim() == 2 and edge_index.shape[0] != 2 and edge_index.shape[1] == 2:
+            edge_index = edge_index.t().contiguous()
+
+        # Ensure undirected edges by adding reverse directions --------------
         rev_edge_index = edge_index[[1, 0], :]
-        batch.edge_index = torch.cat((edge_index, rev_edge_index), dim=1)
-        
-        # Remove potential duplicate edges (optional but safer)
-        batch.edge_index = torch.unique(batch.edge_index, dim=1)
+        edge_index = torch.cat((edge_index, rev_edge_index), dim=1)
+
+        # Remove potential duplicate edges (optional but safer) -------------
+        edge_index = torch.unique(edge_index, dim=1)
+
+        batch.edge_index = edge_index
         return batch
     
 
