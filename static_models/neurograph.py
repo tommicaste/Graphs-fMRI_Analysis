@@ -15,55 +15,58 @@ from torch_geometric.utils import dropout_edge
 from torch.nn import ModuleList
 from torch_geometric.nn import aggr
 
-
-class LightningGNN(pl.LightningModule):
+class NeurographGNN(pl.LightningModule):
     def __init__(
         self,
         input_dim: int,
         hidden_channels: int,
+        hidden: int,
         num_layers: int,
         GNNLayer: nn.Module,
         num_classes: int,
-        mlp_hidden: list[int],
-        lr: float = 1e-3,
-        wd: float = 1e-3,
         edge_top: float | None = None,
         edge_tsh: float | None = None,
         loss_type: str = 'cross_entropy',
         class_weights: torch.Tensor | None = None,
-        residual_connections: bool = False,
-        pooling_fn: str = 'mean',
+        lr: float = 1e-3,
+        wd: float = 1e-3,
     ):
         super().__init__()
         self.save_hyperparameters()
+
         self.edge_tf = BatchEdgeListTransform(top=edge_top, tsh=edge_tsh)
-        self.convs = nn.ModuleList(
-            [GNNLayer(input_dim, hidden_channels)]
-            + [GNNLayer(hidden_channels, hidden_channels) for _ in range(num_layers - 1)]
+
+        num_features = input_dim
+        self.convs = ModuleList()
+        self.convs.append(GNNLayer(num_features, hidden_channels))
+        for _ in range(num_layers - 1):
+            self.convs.append(GNNLayer(hidden_channels, hidden_channels))
+
+        self.aggr = aggr.MeanAggregation()
+
+        
+        tri_len = num_features * (num_features + 1) // 2
+        input_dim1 = tri_len + hidden_channels * num_layers
+
+        self.bn = nn.BatchNorm1d(tri_len)
+        self.bnh = nn.BatchNorm1d(hidden_channels * num_layers)
+
+        self.mlp = nn.Sequential(
+            nn.Linear(input_dim1, hidden),
+            nn.BatchNorm1d(hidden),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(hidden, hidden // 2),
+            nn.BatchNorm1d(hidden // 2),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(hidden // 2, hidden // 2),
+            nn.BatchNorm1d(hidden // 2),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(hidden // 2, num_classes),
         )
-        self.norms = nn.ModuleList(
-            [nn.LayerNorm(hidden_channels) for _ in range(num_layers)]
-        )
-        if pooling_fn == 'mean':
-            self.pool = global_mean_pool
-            mlp_input_dim = hidden_channels
-        elif pooling_fn == 'sum':
-            self.pool = global_add_pool
-            mlp_input_dim = hidden_channels
-        elif pooling_fn == 'max':
-            self.pool = global_max_pool
-            mlp_input_dim = hidden_channels
-        else:
-            raise ValueError(
-                f"Unsupported pooling_fn: {pooling_fn}. Supported values are 'mean', 'sum', and 'max'."
-            )
-        layers: list[nn.Module] = []
-        in_dim = mlp_input_dim
-        for h in mlp_hidden:
-            layers += [nn.Linear(in_dim, h), nn.ReLU(), nn.Dropout(0.5)]
-            in_dim = h
-        layers.append(nn.Linear(in_dim, num_classes))
-        self.mlp = nn.Sequential(*layers)
+
         self.criterion = self._configure_loss()
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
@@ -78,7 +81,6 @@ class LightningGNN(pl.LightningModule):
         self.test_labels: list[torch.Tensor] = []
 
     def _configure_loss(self):
-        """Set up the loss based on hyperparameters."""
         loss_type = getattr(self.hparams, 'loss_type', 'cross_entropy')
         if loss_type == 'weighted_cross_entropy':
             weights = getattr(self.hparams, 'class_weights', None)
@@ -94,23 +96,30 @@ class LightningGNN(pl.LightningModule):
     def forward(self, data):
         data = self.edge_tf(data)
         x, edge_index, batch = data.x, data.edge_index, data.batch
-        if edge_index is not None:
-            edge_index, _ = dropout_edge(
-                edge_index,
-                p = 0.2,
-                force_undirected=True,
-                training=self.training
-            )
-        for i, (conv, norm) in enumerate(zip(self.convs, self.norms)):
-            x_residual = x
-            x = conv(x, edge_index)
-            x = norm(x).relu()
-            residual_connections = getattr(self.hparams, 'residual_connections', False)
-            if residual_connections and i > 0:
-                x = x + x_residual
-            x = F.dropout(x, p=0.5, training=self.training)
-        x = self.pool(x, batch)
-        return self.mlp(x)
+        xs = [x]
+
+        for conv in self.convs:
+            xs.append(conv(xs[-1], edge_index).tanh())
+
+        h_parts = []
+        for i, xx in enumerate(xs):
+            if i == 0:
+                xx = xx.reshape(data.num_graphs, x.shape[1], -1)
+                trius = []
+                for t in xx:
+                    triu_flat = t.triu().flatten()                     # include diagonal
+                    triu_flat = triu_flat[triu_flat.nonzero(as_tuple=True)]
+                    trius.append(triu_flat)                            # drop zeros
+                x_proc = torch.stack(trius)
+                x_proc = self.bn(x_proc)
+            else:
+                h_parts.append(self.aggr(xx, batch))
+
+        h = torch.cat(h_parts, dim=1)
+        h = self.bnh(h)
+        out = torch.cat((x_proc, h), dim=1)
+        logits = self.mlp(out)
+        return logits
 
     def training_step(self, batch, _):
         logits = self(batch)
@@ -181,4 +190,3 @@ class LightningGNN(pl.LightningModule):
             weight_decay=wd
         )
         return {"optimizer": optimizer}
-

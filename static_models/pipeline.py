@@ -13,7 +13,7 @@ from torch import nn
 from data import load_data
 
 from static_models.gnn import LightningGNN
-from static_models.gnn import NeurographGNN 
+from static_models.neurograph import NeurographGNN 
 
 __all__ = ["train_model"]
 
