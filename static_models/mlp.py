@@ -75,12 +75,12 @@ class LightningMLP(pl.LightningModule):
         loss = self.criterion(logits, batch.y)
         self.train_acc.update(logits, batch.y)
         self.train_bacc.update(logits, batch.y)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
+        self.log("train_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0), sync_dist=True)
         return loss
 
     def on_train_epoch_end(self):
-        self.log("train_acc",  self.train_acc.compute(),  prog_bar=True)
-        self.log("train_bacc", self.train_bacc.compute(), prog_bar=True)
+        self.log("train_acc",  self.train_acc.compute(),  prog_bar=True, sync_dist=True)
+        self.log("train_bacc", self.train_bacc.compute(), prog_bar=True, sync_dist=True)
         self.train_acc.reset()
         self.train_bacc.reset()
 
@@ -89,11 +89,11 @@ class LightningMLP(pl.LightningModule):
         loss = self.criterion(logits, batch.y)
         self.val_acc.update(logits, batch.y)
         self.val_bacc.update(logits, batch.y)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0))
+        self.log("val_loss", loss, on_epoch=True, prog_bar=False, batch_size=batch.y.size(0), sync_dist=True)
 
     def on_validation_epoch_end(self):
-        self.log("val_acc",  self.val_acc.compute(), prog_bar=True)
-        self.log("val_bacc", self.val_bacc.compute(), prog_bar=True)
+        self.log("val_acc",  self.val_acc.compute(), prog_bar=True, sync_dist=True)
+        self.log("val_bacc", self.val_bacc.compute(), prog_bar=True, sync_dist=True)
         self.val_acc.reset()
         self.val_bacc.reset()
 
@@ -108,12 +108,19 @@ class LightningMLP(pl.LightningModule):
         self.test_bacc.update(logits, batch.y)
         self.test_logits.append(logits.cpu())
         self.test_labels.append(batch.y.cpu())
-        self.log("test_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch.y.size(0))
+        self.log(
+            "test_loss",
+            loss,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=batch.y.size(0),
+            sync_dist=True,
+        )
         return loss
 
     def on_test_epoch_end(self):
-        self.log("test_acc",  self.test_acc.compute(),  prog_bar=False)
-        self.log("test_bacc", self.test_bacc.compute(), prog_bar=True)
+        self.log("test_acc",  self.test_acc.compute(),  prog_bar=False, sync_dist=True)
+        self.log("test_bacc", self.test_bacc.compute(), prog_bar=True, sync_dist=True)
         self.test_acc.reset()
         self.test_bacc.reset()
         logits = torch.cat(self.test_logits).argmax(1).numpy()

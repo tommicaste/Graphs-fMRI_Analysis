@@ -158,6 +158,9 @@ def train_model(
 
     
     trainer.fit(model_instance, train_loader, val_loader)
-    test_metrics = trainer.test(ckpt_path="best", dataloaders=test_loader)
+
+    # Evaluate using the best checkpoint if available, else current model
+    best_path = ckpt_cb.best_model_path or "best"
+    test_metrics = trainer.test(ckpt_path=best_path, dataloaders=test_loader)
 
     return trainer, test_metrics

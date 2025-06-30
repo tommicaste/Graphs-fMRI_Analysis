@@ -1,9 +1,9 @@
-seed: 23
+seed: 7
 save_dir: /home/tcastellani/projects/run
 
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
-  batch_size: 48
+  batch_size: 64
   num_workers: 4
   split: [0.6, 0.20, 0.20]
   augment:
@@ -11,10 +11,10 @@ data:
     proportion: null
   edge:
     tsh: null
-    top: null
+    top: 1.0
 
 models:
-  - name: gnn_sage
+  - name: gcn_100%
     architecture: gnn
     params:
       input_dim: 347
@@ -31,20 +31,5 @@ models:
     trainer:
       max_epochs: 50           
       accelerator: auto
-      devices: 1
+      devices: 2
       log_every_n_steps: 5
-
-  - name: mlp_baseline
-    architecture: mlp
-    params:
-      input_dim: 347
-      hidden_dims: [64, 64]
-      num_classes: 4
-      lr: 0.001
-      wd: 0.001
-      loss_type: cross_entropy
-    trainer:
-      max_epochs: 50
-      accelerator: auto
-      devices: 1
-      log_every_n_steps: 10
