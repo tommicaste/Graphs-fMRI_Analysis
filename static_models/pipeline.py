@@ -13,12 +13,13 @@ from torch import nn
 from data import load_data
 
 from static_models.gnn import LightningGNN
-from static_models.neurograph import NeurographGNN 
+from static_models.neurograph import NeurographGNN
+from static_models.bnt import BNT_Lightning
 
 __all__ = ["train_model"]
 
 
-from static_models.mlp import LightningMLP 
+from static_models.mlp import LightningMLP
 from static_models.logistic import LightningLogisticRegression
 
 MODEL_REGISTRY: dict[str, type[pl.LightningModule]] = {
@@ -26,6 +27,7 @@ MODEL_REGISTRY: dict[str, type[pl.LightningModule]] = {
     "mlp": LightningMLP,
     "logistic": LightningLogisticRegression,
     "neurograph": NeurographGNN,
+    "bnt": BNT_Lightning,
 }
 
 
@@ -87,6 +89,12 @@ def train_model(
         model_kwargs.setdefault("num_layers", 2)
         model_kwargs.setdefault("num_classes", 4)
         model_kwargs.setdefault("loss_type", "cross_entropy")
+    elif model_cls is BNT_Lightning:
+        model_kwargs.setdefault("input_dim", 26)
+        model_kwargs.setdefault("num_classes", 4)
+        model_kwargs.setdefault("n_layers", 2)
+        model_kwargs.setdefault("n_heads", 4)
+        model_kwargs.setdefault("n_clusters", 10)
     elif model_cls is LightningMLP:
         model_kwargs.setdefault("hidden_dims", [128, 64])
         model_kwargs.setdefault("input_dim", 347)
