@@ -48,23 +48,6 @@ def load_data(
     augment_proportion: Optional[float] = None,
     cache_root: str = "/scratch/midway3/tcastellani/sleepstages",
 ) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, torch.Tensor]]:
-    """
-    Load, split, and optionally augment data, then return PyG DataLoaders and class weights.
-
-    Args:
-        path (str): Path to raw data file.
-        batch_size (int): Batch size for DataLoaders.
-        workers (int): Number of worker processes.
-        train_ratio (float): Training split ratio.
-        val_ratio (float): Validation split ratio.
-        test_ratio (float): Test split ratio.
-        augment_strategy (str, optional): Augmentation strategy name.
-        augment_proportion (float, optional): Proportion for augmentation.
-        cache_root (str): Directory for cache files.
-
-    Returns:
-        Tuple[DataLoader, DataLoader, DataLoader, Dict[str, torch.Tensor]]: Train, val, test loaders and class weights.
-    """
     if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
         raise ValueError("train + val + test must sum to 1.0")
 

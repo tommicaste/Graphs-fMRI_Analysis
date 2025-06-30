@@ -9,7 +9,7 @@ class BatchEdgeListTransform(BaseTransform):
     matrices in `batch.x`.
     """
 
-    def __init__(self, *, top: float | None = None, tsh: float | None = None):
+    def __init__(self, *, top: float | None = None, tsh: float | None = None, weighted: bool = False):
         super().__init__()
         
         # --- Parameter Validation ---
@@ -23,6 +23,7 @@ class BatchEdgeListTransform(BaseTransform):
         
         self.top = top
         self.tsh = tsh
+        self.weighted = weighted
 
     def __call__(self, batch):
         # Passthrough behaviour when no edge creation strategy is specified
@@ -34,6 +35,10 @@ class BatchEdgeListTransform(BaseTransform):
             # Otherwise create an empty edge list with correct dtype/shape.
             dev = batch.x.device if hasattr(batch, "x") and torch.is_tensor(batch.x) else torch.device("cpu")
             batch.edge_index = torch.empty((2, 0), dtype=torch.long, device=dev)
+            if self.weighted:
+                # Create an empty edge_weight tensor with the same dtype as the input features (if available)
+                dtype = batch.x.dtype if hasattr(batch, "x") and torch.is_tensor(batch.x) else torch.float32
+                batch.edge_weight = torch.empty((0,), dtype=dtype, device=dev)
             return batch
 
         if not hasattr(batch, "x"):
@@ -62,11 +67,17 @@ class BatchEdgeListTransform(BaseTransform):
             selected_i, selected_j = i[edge_in_tri_idx], j[edge_in_tri_idx]
             offset = batch_idx * N
             src, dst = selected_j + offset, selected_i + offset
+            if self.weighted:
+                weight_vals = vals[mask]
         else:
             
             k = int(self.top * vals.size(1))
             if k == 0:
                 batch.edge_index = torch.empty((2, 0), dtype=torch.long, device=dev)
+                if self.weighted:
+                    # Create an empty edge_weight tensor with the same dtype as the input features (if available)
+                    dtype = batch.x.dtype if hasattr(batch, "x") and torch.is_tensor(batch.x) else torch.float32
+                    batch.edge_weight = torch.empty((0,), dtype=dtype, device=dev)
                 return batch
             _, idx = vals.topk(k, dim=1)
             i_sel = torch.gather(i.expand(B, -1), 1, idx)
@@ -74,6 +85,8 @@ class BatchEdgeListTransform(BaseTransform):
             offset = (torch.arange(B, device=dev) * N).unsqueeze(1)
             src = (j_sel + offset).flatten()
             dst = (i_sel + offset).flatten()
+            if self.weighted:
+                weight_vals = torch.gather(vals, 1, idx).flatten()
 
         
         edge_index = torch.stack((src, dst), dim=0)
@@ -88,10 +101,17 @@ class BatchEdgeListTransform(BaseTransform):
         rev_edge_index = edge_index[[1, 0], :]
         edge_index = torch.cat((edge_index, rev_edge_index), dim=1)
 
+        # Handle edge weights if requested --------------------------------
+        if self.weighted:
+            edge_weight = torch.cat((weight_vals, weight_vals), dim=0)
+
         # Remove potential duplicate edges (optional but safer) -------------
-        edge_index = torch.unique(edge_index, dim=1)
+        if not self.weighted:  # keep alignment between edge_index and edge_weight if present
+            edge_index = torch.unique(edge_index, dim=1)
 
         batch.edge_index = edge_index
+        if self.weighted:
+            batch.edge_weight = edge_weight
         return batch
     
 
@@ -115,3 +135,47 @@ class LowerTriFlattenBatch(nn.Module):
         B = int(batch_vec.max()) + 1
         x = x.view(B, self.n, self.n)
         return x[:, self.rows, self.cols].contiguous()
+
+class BatchFeatureTransform(BaseTransform):
+    """Modify ``batch.x`` for an entire PyG ``Batch``.
+
+    Parameters
+    ----------
+    feature_type : str, optional (default="corr")
+        • "corr"     – keep input correlation matrices unchanged.
+        • "identity" – replace every graph's feature matrix with an *identity* matrix
+          of matching size.
+
+    The transform expects ``batch.x`` to contain a *stack* of square matrices:
+
+    (B·N, N) where B is the batch size and N is the node count per graph.
+    """
+
+    def __init__(self, feature_type: str = "corr"):
+        super().__init__()
+        if feature_type not in {"corr", "identity"}:
+            raise ValueError("feature_type must be either 'corr' or 'identity'.")
+        self.feature_type = feature_type
+
+    def __call__(self, batch):
+        # Early exit if no change required
+        if self.feature_type == "corr":
+            return batch
+
+        # From here on we know we must build identity matrices
+        if not hasattr(batch, "x"):
+            raise AttributeError("Batch must contain attribute 'x'.")
+
+        total_rows, N = batch.x.shape
+        if total_rows % N != 0:
+            raise ValueError("batch.x rows not divisible by N; graphs have unequal sizes?")
+
+        B = total_rows // N
+
+        # Build identity matrix (N, N) once on the correct device / dtype
+        eye = torch.eye(N, dtype=batch.x.dtype, device=batch.x.device)
+
+        # Repeat B times and reshape to (B·N, N)
+        batch.x = eye.repeat(B, 1)
+
+        return batch

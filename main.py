@@ -34,7 +34,7 @@ def _prepare_model_kwargs(arch: str, params: Dict[str, Any], data_cfg: Dict[str,
     params = params.copy() 
 
     # Harmonise key name for GNN layer
-    if arch in {"gnn", "neurograph"}:
+    if arch in {"gnn", "neurograph", "weighted_gnn"}:
         if "gnn_layer" in params:
             layer_val = params.pop("gnn_layer")
             if isinstance(layer_val, str):
@@ -80,7 +80,7 @@ def main():
         params = _prepare_model_kwargs(arch, m.get("params", {}), data_cfg)
 
         # Ensure weight decay is present for models that support it
-        if arch in {"gnn", "mlp", "neurograph"} and "wd" not in params:
+        if arch in {"gnn", "mlp", "neurograph", "weighted_gnn"} and "wd" not in params:
             params["wd"] = 1e-3  # sensible default
 
         trainer_cfg = m.get("trainer", {})

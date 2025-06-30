@@ -15,6 +15,7 @@ from data import load_data
 from static_models.gnn import LightningGNN
 from static_models.neurograph import NeurographGNN
 from static_models.bnt import BNT_Lightning
+from static_models.weighted_gnn import WeightedGNN
 
 __all__ = ["train_model"]
 
@@ -24,6 +25,7 @@ from static_models.logistic import LightningLogisticRegression
 
 MODEL_REGISTRY: dict[str, type[pl.LightningModule]] = {
     "gnn": LightningGNN,
+    "weighted_gnn": WeightedGNN,
     "mlp": LightningMLP,
     "logistic": LightningLogisticRegression,
     "neurograph": NeurographGNN,
@@ -81,6 +83,14 @@ def train_model(
         model_kwargs.setdefault("hidden_channels", 32)
         model_kwargs.setdefault("num_layers", 3)
         model_kwargs.setdefault("num_classes", 4)
+    elif model_cls is WeightedGNN:
+        model_kwargs.setdefault("GNNLayer", __import__("torch_geometric.nn").torch_geometric.nn.GCNConv)
+        model_kwargs.setdefault("mlp_hidden", [64, 32])
+        model_kwargs.setdefault("input_dim", 347)
+        model_kwargs.setdefault("hidden_channels", 32)
+        model_kwargs.setdefault("num_layers", 3)
+        model_kwargs.setdefault("num_classes", 4)
+        model_kwargs.setdefault("feature_type", "corr")
     elif model_cls is NeurographGNN:
         model_kwargs.setdefault("GNNLayer", __import__("torch_geometric.nn").torch_geometric.nn.SAGEConv)
         model_kwargs.setdefault("hidden_channels", 64)
