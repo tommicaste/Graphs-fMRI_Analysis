@@ -22,12 +22,13 @@ class LightningMLP(pl.LightningModule):
         wd: float = 1e-3,
         loss_type: str = "cross_entropy",
         class_weights: torch.Tensor | None = None,
+        self_conv: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
 
         # Feature flattening layer
-        self.flatten = LowerTriFlattenBatch(input_dim)
+        self.flatten = LowerTriFlattenBatch(input_dim, self_conv=self_conv)
         in_features = input_dim * (input_dim - 1) // 2
 
         # MLP classifier head

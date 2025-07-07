@@ -1,33 +1,30 @@
 seed: 7
-save_dir: neurograph
+save_dir: /home/tcastellani/projects/run
 
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
-  batch_size: 64
+  batch_size: 32
   num_workers: 4
-  split: [0.6, 0.2, 0.2]
+  split: [0.6, 0.3, 0.1]
   augment:
     strategy: null
     proportion: null
   edge:
     tsh: null
-    top: 0.10
+    top: null
 
 models:
-  - name: neurograph
-    architecture: neurograph
+  - name: mlp_baseline
+    architecture: mlp
     params:
-      hidden_channels: 64       
-      hidden: 128               
-      num_layers: 3             
       input_dim: 347
-      gnn_layer: GCNConv     
+      hidden_dims: [64, 64]
+      num_classes: 4
       lr: 0.001
       wd: 0.001
       loss_type: weighted_cross_entropy
-      num_classes: 4
     trainer:
       max_epochs: 50
       accelerator: auto
       devices: 2
-      log_every_n_steps: 10 
+      log_every_n_steps: 10

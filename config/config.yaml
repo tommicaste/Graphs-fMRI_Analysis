@@ -3,30 +3,33 @@ save_dir: /home/tcastellani/projects/run
 
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
-  batch_size: 64
+  batch_size: 32
   num_workers: 4
-  split: [0.6, 0.20, 0.20]
+  split: [0.6, 0.3, 0.1]
   augment:
     strategy: null
     proportion: null
   edge:
-    tsh: null
-    top: 0.06  
+    tsh: 0
+    top: null
 
 models:
-  - name: weighted_sage_full_correlation 
-    architecture: weighted_gnn
+  - name: sage_tsh_0
+    architecture: gnn
     params:
       input_dim: 347
-      mlp_hidden: [64, 64]
+      hidden_channels: 64
+      num_layers: 1
       num_classes: 4
-      lr: 0.001
-      wd: 0.001
+      mlp_hidden: [64, 32]
+      lr: 0.001                
+      wd: 0.0001               
+      gnn_layer: SAGEConv
       pooling_fn: mean
       residual_connections: true 
       loss_type: weighted_cross_entropy
     trainer:
-      max_epochs: 50
-      accelerator: auto            
-      devices: 1
-      log_every_n_steps: 10 
+      max_epochs: 50           
+      accelerator: auto
+      devices: 2
+      log_every_n_steps: 5

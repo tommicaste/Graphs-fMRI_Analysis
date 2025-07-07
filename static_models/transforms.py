@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.transforms import BaseTransform
 import torch.nn as nn
-
+from torch_sparse import SparseTensor, matmul as sparse_matmul
 
 class BatchEdgeListTransform(BaseTransform):
     """
@@ -114,7 +114,6 @@ class BatchEdgeListTransform(BaseTransform):
             batch.edge_weight = edge_weight
         return batch
     
-
 class LowerTriFlattenBatch(nn.Module):
     """
     PyG batch of symmetric N × N matrices:
@@ -123,17 +122,40 @@ class LowerTriFlattenBatch(nn.Module):
     returns
         (B, N(N−1)//2)   strictly lower triangular, diagonal excluded
     """
-    def __init__(self, n: int):
+    def __init__(self, n: int, self_conv: bool = False, self_conv_adj: bool = False):
         super().__init__()
         r, c = torch.tril_indices(n, n, offset=-1)
         self.register_buffer("rows", r, persistent=False)
         self.register_buffer("cols", c, persistent=False)
         self.n = n
+        self.self_conv = self_conv
+        self.self_conv_adj = self_conv_adj
 
     def forward(self, data):
         x, batch_vec = data.x, data.batch
         B = int(batch_vec.max()) + 1
         x = x.view(B, self.n, self.n)
+
+        
+        if self.self_conv_adj:
+            if not hasattr(data, "edge_index") or data.edge_index is None:
+                raise AttributeError("data must contain 'edge_index' when self_conv_adj=True")
+
+            edge_index = data.edge_index.to(x.device)
+            if edge_index.numel() == 0:
+                raise ValueError("edge_index is empty; cannot build adjacency matrix for self_conv_adj")
+
+            # Build a sparse adjacency for the whole batch (B*N, B*N)
+            sizes = (B * self.n, B * self.n)
+            A = SparseTensor.from_edge_index(edge_index, sparse_sizes=sizes)
+
+            # Multiply: (B*N, B*N) @ (B*N, N) → (B*N, N)
+            x_flat = x.view(B * self.n, self.n)
+            x_flat = sparse_matmul(A, x_flat)
+            x = x_flat.view(B, self.n, self.n)
+        elif self.self_conv:
+            x = torch.matmul(x, x)
+
         return x[:, self.rows, self.cols].contiguous()
 
 class BatchFeatureTransform(BaseTransform):

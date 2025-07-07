@@ -1,4 +1,4 @@
-from static_models.transforms import LowerTriFlattenBatch
+from static_models.transforms import LowerTriFlattenBatch, BatchEdgeListTransform
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -17,14 +17,24 @@ class LightningLogisticRegression(pl.LightningModule):
         input_dim: int,
         num_classes: int,
         lr: float = 1e-3,
+        wd: float = 1e-3,
         loss_type: str = "cross_entropy",
         class_weights: torch.Tensor | None = None,
+        self_conv: bool = False,
+        self_conv_adj: bool = False,
+        # Edge construction parameters -----------------------------------
+        edge_top: float | None = None,
+        edge_tsh: float | None = None,
+        edge_weighted: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
 
+        # Edge list creation transform (no-op if both params None)
+        self.edge_tf = BatchEdgeListTransform(top=edge_top, tsh=edge_tsh, weighted=edge_weighted)
+
         # Feature flattening transform
-        self.flatten = LowerTriFlattenBatch(input_dim)
+        self.flatten = LowerTriFlattenBatch(input_dim, self_conv=self_conv, self_conv_adj=self_conv_adj)
         in_features = input_dim * (input_dim - 1) // 2
 
         # Linear classifier head
@@ -59,7 +69,9 @@ class LightningLogisticRegression(pl.LightningModule):
 
     # Forward pass
     def forward(self, data):
-        z = self.flatten(data)         # (B, input_dim(input_dim−1)//2)
+        # Build edge_index (if requested) then vectorise matrix features
+        data = self.edge_tf(data)
+        z = self.flatten(data)   
         return self.clf(z)
 
     # Training methods
@@ -134,7 +146,9 @@ class LightningLogisticRegression(pl.LightningModule):
 
     # Optimizer configuration
     def configure_optimizers(self):
+        lr = float(getattr(self.hparams, 'lr', 1e-3))
+        wd = float(getattr(self.hparams, 'wd', 1e-3))
         optimizer = torch.optim.AdamW(
-            self.parameters(), lr=float(getattr(self.hparams, 'lr', 1e-3)), weight_decay=5e-3
+            self.parameters(), lr=lr, weight_decay=wd
         )
         return {"optimizer": optimizer}

@@ -3,27 +3,29 @@ save_dir: /home/tcastellani/projects/run
 
 data:
   path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
-  batch_size: 64
+  batch_size: 32
   num_workers: 4
-  split: [0.6, 0.20, 0.20]
+  split: [0.6, 0.3, 0.1]
   augment:
     strategy: null
     proportion: null
 
 models:
-  - name: bnt_baseline
-    architecture: bnt
+  - name: logistic_baseline_self_conv
+    architecture: logistic
     params:
-      input_dim: 347         
-      num_classes: 4          
-      n_layers: 1             
-      n_heads: 1              
-      n_clusters: 8           
-      lr: 0.0001              
-      wd: 0.0001              
+      input_dim: 347
+      num_classes: 4
+      lr: 0.0001
+      wd: 0.0001
       loss_type: weighted_cross_entropy
+      self_conv: true
+      self_conv_adj: true
+      edge_top: 0.10
+      edge_tsh: null
+      edge_weighted: false
     trainer:
-      max_epochs: 40
+      max_epochs: 50
       accelerator: auto
       devices: 2
       log_every_n_steps: 10 

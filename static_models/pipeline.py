@@ -109,9 +109,16 @@ def train_model(
         model_kwargs.setdefault("hidden_dims", [128, 64])
         model_kwargs.setdefault("input_dim", 347)
         model_kwargs.setdefault("num_classes", 4)
+        model_kwargs.setdefault("self_conv", False)
     elif model_cls is LightningLogisticRegression:
         model_kwargs.setdefault("input_dim", 347)
         model_kwargs.setdefault("num_classes", 4)
+        model_kwargs.setdefault("self_conv", False)
+        model_kwargs.setdefault("self_conv_adj", False)
+        model_kwargs.setdefault("edge_top", None)
+        model_kwargs.setdefault("edge_tsh", None)
+        model_kwargs.setdefault("edge_weighted", False)
+        model_kwargs.setdefault("wd", 1e-3)
 
     
     pl.seed_everything(seed, workers=True)
