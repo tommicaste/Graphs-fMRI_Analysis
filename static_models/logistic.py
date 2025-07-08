@@ -105,7 +105,7 @@ class LightningLogisticRegression(pl.LightningModule):
             "test_loss",
             loss,
             on_epoch=True,
-            prog_bar=False,
+            prog_bar=True,
             batch_size=batch.y.size(0),
             sync_dist=True,
         )

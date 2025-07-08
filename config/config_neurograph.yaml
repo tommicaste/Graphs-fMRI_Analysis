@@ -1,8 +1,8 @@
 seed: 7
-save_dir: /home/tcastellani/projects/run
+save_dir: runs  # Change this to your desired output directory
 
 data:
-  path: /project2/cdonnat/sleepstages/data/pt/non_overlapping_data.pt
+  path: data/your_dataset.pt  # Change this to your data file path
   batch_size: 32
   num_workers: 4
   split: [0.6, 0.3, 0.1]

@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional, Dict
 import os, hashlib, torch
 from torch_geometric.loader import DataLoader
-from data.split import split_patient, temporal_splits
+from data.split import split_patient
 from data.augment import augment_upsample, augment_interpolate, augment_geodesic
 import random
 import numpy as np
@@ -26,7 +26,7 @@ def load_data(
     test_ratio: float = 0.10,
     augment_strategy: Optional[str] = None,
     augment_proportion: Optional[float] = None,
-    cache_root: str = "/cache",
+    cache_root: str = ".cache",
 ) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, torch.Tensor]]:
     if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
         raise ValueError("train + val + test must sum to 1.0")
