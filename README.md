@@ -1,12 +1,12 @@
 # Graph based Sleep Stage Classification
 
-This repository provides a PyTorch Lightning pipeline for classifying sleep stages from brain-network data such as fMRI or EEG correlation matrices. Nodes correspond to sensors and edges capture functional connectivity.
+This repository provides a PyTorch Lightning pipeline for classifying sleep stages from brain-network data formatted as fMRI BOLD correlation matrices where nodes correspond to ROIs. 
 
 ## Overview
 
 The framework lets you train, evaluate, and compare several models:
 
-* **GNN** — standard graph neural network (GCN, GraphSAGE, and similar)  
+* **GNN** — standard graph neural network (GCN, GraphSAGE, and similar) with architectural tweaks (residual connections, dropouts and similar) 
 * **WeightedGNN** — same network with edge weights  
 * **Neurograph** — custom architecture inspired by the NeuroGraph paper  
 * **Brain Network Transformer** — transformer-style model for graph inputs  
@@ -51,25 +51,17 @@ The code handles patient-aware splitting, class-imbalance augmentation, and full
 git clone https://github.com/tommicaste/Graphs-sleepstages.git
 cd Graphs-sleepstages
 
-# install every required library in one shot
 pip install -r requirements.txt
 
-# optional, for development
 pip install -e .
 ```
-
-`requirements.txt` already lists PyTorch, torch_geometric, PyTorch Lightning, and the usual data-science stack, so you no longer need to install them individually.
-
-### GPU note
-
-If you need a specific CUDA wheel, follow the official instructions on the PyTorch and torch_geometric websites.
 
 ## Usage
 
 1. **Prepare data** — provide a single `.pt` file containing a list of `torch_geometric.data.Data` objects. Each object must include  
    * `x` – correlation matrix with shape `[num_nodes, num_nodes]`  
    * `y` – integer label for the sleep stage  
-   * `metadata` – dictionary with keys `sample` (patient identifier) and `segment` (epoch index); leave empty if unavailable  
+   * `metadata` – dictionary with keys `sample`  and `segment` ; leave empty if unavailable  
 
 2. **Edit a YAML** — pick one in `config/` or create your own. Key blocks:  
    * `data` – file path, batch size, split ratios, augmentation strategy  
@@ -94,7 +86,7 @@ After training completes, the pipeline reloads the checkpoint with the best vali
 
 All artefacts are stored in `runs/<model_name>/results/`.
 
-## CitationS
+## Citations
 
 NeuroGraph  
 Anwar Said, Roza G. Bayrak, Tyler Derr, Mudassir Shabbir, Daniel Moyer, Catie Chang, and Xenofon Koutsoukos. “NeuroGraph: Benchmarks for Graph Machine Learning in Brain Connectomics.” arXiv preprint arXiv:2306.06202, 2024.
