@@ -28,7 +28,6 @@ The code handles patient-aware splitting, class-imbalance augmentation, and full
 │   ├── split.py
 │   ├── augment.py
 │   ├── graph.py
-│   └── __init__.py
 ├── static_models/           # model implementations
 │   ├── gnn.py
 │   ├── weighted_gnn.py
