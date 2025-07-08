@@ -126,7 +126,7 @@ def evaluate_classification(
         "balanced_accuracy": bacc
     }
 
-def simulate_data(corr_data, phi, T, n):
+def simulate_data(corr_data, phi, T, n, snr = None):
     timeseries = []
     for d in corr_data:
         paths = simulate_timeseries(d['c'], phi, T, n)[:, 1:] 

@@ -1,0 +1,44 @@
+[
+  {
+    "model": "basic",
+    "T": 16,
+    "snr": null,
+    "accuracy": 0.7604285714285715,
+    "balanced_accuracy": 0.7278869047619048
+  },
+  {
+    "model": "ar",
+    "T": 16,
+    "snr": null,
+    "accuracy": 0.7522857142857143,
+    "balanced_accuracy": 0.7442708333333333
+  },
+  {
+    "model": "logreg",
+    "T": 16,
+    "snr": null,
+    "accuracy": 0.7871428571428571,
+    "balanced_accuracy": 0.7227678571428571
+  },
+  {
+    "model": "basic",
+    "T": 16,
+    "snr": 10,
+    "accuracy": 0.7524285714285714,
+    "balanced_accuracy": 0.7211755952380952
+  },
+  {
+    "model": "ar",
+    "T": 16,
+    "snr": 10,
+    "accuracy": 0.7735714285714286,
+    "balanced_accuracy": 0.7051041666666668
+  },
+  {
+    "model": "logreg",
+    "T": 16,
+    "snr": 10,
+    "accuracy": 0.7961428571428572,
+    "balanced_accuracy": 0.7312946428571429
+  }
+]
