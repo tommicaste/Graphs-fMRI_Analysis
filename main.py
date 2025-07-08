@@ -22,7 +22,6 @@ if not CONFIG_PATH.exists():
 
 
 def _resolve_gnn_layer(layer_name: str):
-    """Convert string like 'SAGEConv' -> torch_geometric.nn.SAGEConv class."""
     tg_nn = importlib.import_module("torch_geometric.nn")
     if not hasattr(tg_nn, layer_name):
         raise ValueError(f"Unknown GNN layer '{layer_name}' in torch_geometric.nn")
@@ -30,17 +29,14 @@ def _resolve_gnn_layer(layer_name: str):
 
 
 def _prepare_model_kwargs(arch: str, params: Dict[str, Any], data_cfg: Dict[str, Any]):
-    """Process params dict: resolve layer strings, inject edge config."""
     params = params.copy() 
 
-    # Harmonise key name for GNN layer
     if arch in {"gnn", "neurograph", "weighted_gnn"}:
         if "gnn_layer" in params:
             layer_val = params.pop("gnn_layer")
             if isinstance(layer_val, str):
                 layer_val = _resolve_gnn_layer(layer_val)
             params["GNNLayer"] = layer_val
-        # Inject edge sparsification parameters if provided globally
         edge_cfg = data_cfg.get("edge", {})
         if edge_cfg.get("top") is not None:
             params.setdefault("edge_top", edge_cfg["top"])
@@ -53,14 +49,12 @@ def _prepare_model_kwargs(arch: str, params: Dict[str, Any], data_cfg: Dict[str,
 def main():
     cfg = yaml.safe_load(CONFIG_PATH.read_text())
 
-    # ─── global seed ───
     seed = cfg.get("seed", 123)
     pl.seed_everything(seed, workers=True)
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
 
-    # ─── shared data settings ───
     data_cfg = cfg["data"]
     data_path = data_cfg["path"]
     batch_size = data_cfg.get("batch_size", 32)
@@ -73,15 +67,13 @@ def main():
 
     save_root = Path(cfg.get("save_dir", "runs"))
 
-    # ─── iterate over models ───
     for idx, m in enumerate(cfg.get("models", []), start=1):
         name = m.get("name", f"model_{idx}")
         arch = m["architecture"]
         params = _prepare_model_kwargs(arch, m.get("params", {}), data_cfg)
 
-        # Ensure weight decay is present for models that support it
         if arch in {"gnn", "mlp", "neurograph", "weighted_gnn"} and "wd" not in params:
-            params["wd"] = 1e-3  # sensible default
+            params["wd"] = 1e-3
 
         trainer_cfg = m.get("trainer", {})
         max_epochs = trainer_cfg.pop("max_epochs", 50)
@@ -98,7 +90,6 @@ def main():
             data_path=data_path,
             save_dir=run_dir,
             model_kwargs=params,
-            # data args
             augment_strategy=augment_strategy,
             augment_proportion=augment_proportion,
             batch_size=batch_size,
@@ -106,7 +97,6 @@ def main():
             train_ratio=train_ratio,
             val_ratio=val_ratio,
             test_ratio=test_ratio,
-            # trainer args
             max_epochs=max_epochs,
             accelerator=accelerator,
             devices=devices,

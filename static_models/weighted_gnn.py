@@ -38,7 +38,6 @@ class WeightedGNN(pl.LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
-        # Build edge list *with weights* so that downstream layers can exploit them
         self.edge_tf = BatchEdgeListTransform(top=edge_top, tsh=edge_tsh, weighted=True)
         self.feat_tf = BatchFeatureTransform(feature_type)
         self.convs = nn.ModuleList(
@@ -82,14 +81,13 @@ class WeightedGNN(pl.LightningModule):
         self.test_labels: list[torch.Tensor] = []
 
     def _configure_loss(self):
-        """Set up the loss based on hyperparameters."""
         loss_type = getattr(self.hparams, 'loss_type', 'cross_entropy')
         if loss_type == 'weighted_cross_entropy':
             weights = getattr(self.hparams, 'class_weights', None)
             if weights is None:
                 raise ValueError("class_weights must be provided for weighted_cross_entropy")
             self.register_buffer("class_weights", weights)
-            return nn.CrossEntropyLoss(weight=self.class_weights)
+            return nn.CrossEntropyLoss(weight=weights)
         elif loss_type == 'cross_entropy':
             return nn.CrossEntropyLoss()
         else:
@@ -101,7 +99,6 @@ class WeightedGNN(pl.LightningModule):
         x, edge_index, batch = data.x, data.edge_index, data.batch
         edge_weight = getattr(data, "edge_weight", None)
 
-        # Apply edge dropout (will keep weights aligned)
         if edge_index is not None:
             if edge_weight is not None:
                 edge_index, mask = dropout_edge(
@@ -122,7 +119,6 @@ class WeightedGNN(pl.LightningModule):
         for i, (conv, norm) in enumerate(zip(self.convs, self.norms)):
             x_residual = x
 
-            # Dynamically forward edge weights if the layer accepts them
             edge_kwargs = {}
             if edge_weight is not None:
                 sig = inspect.signature(conv.forward)

@@ -8,9 +8,6 @@ from static_models.utils import evaluate_classification
 
 
 class LightningLogisticRegression(pl.LightningModule):
-    """
-    Logistic regression model for classification tasks, with support for weighted loss and PyTorch Lightning integration.
-    """
 
     def __init__(
         self,
@@ -22,7 +19,6 @@ class LightningLogisticRegression(pl.LightningModule):
         class_weights: torch.Tensor | None = None,
         self_conv: bool = False,
         self_conv_adj: bool = False,
-        # Edge construction parameters -----------------------------------
         edge_top: float | None = None,
         edge_tsh: float | None = None,
         edge_weighted: bool = False,
@@ -30,28 +26,23 @@ class LightningLogisticRegression(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # Edge list creation transform (no-op if both params None)
         self.edge_tf = BatchEdgeListTransform(top=edge_top, tsh=edge_tsh, weighted=edge_weighted)
 
-        # Feature flattening transform
         self.flatten = LowerTriFlattenBatch(input_dim, self_conv=self_conv, self_conv_adj=self_conv_adj)
         in_features = input_dim * (input_dim - 1) // 2
 
-        # Linear classifier head
         self.clf = nn.Linear(in_features, num_classes)
 
-        # Loss function
         if loss_type == "weighted_cross_entropy":
             if class_weights is None:
                 raise ValueError("class_weights must be provided for weighted_cross_entropy")
             self.register_buffer("class_weights", class_weights)
-            self.criterion = nn.CrossEntropyLoss(weight=self.class_weights)
+            self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         elif loss_type == "cross_entropy":
             self.criterion = nn.CrossEntropyLoss()
         else:
             raise ValueError(f"Unsupported loss_type: {loss_type}")
 
-        # Performance metrics
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.test_wacc  = MulticlassAccuracy(num_classes=num_classes, average="weighted")
@@ -67,14 +58,11 @@ class LightningLogisticRegression(pl.LightningModule):
         self.test_logits: list[torch.Tensor] = []
         self.test_labels: list[torch.Tensor] = []
 
-    # Forward pass
     def forward(self, data):
-        # Build edge_index (if requested) then vectorise matrix features
         data = self.edge_tf(data)
         z = self.flatten(data)   
         return self.clf(z)
 
-    # Training methods
     def training_step(self, batch, _):
         logits = self(batch)
         loss = self.criterion(logits, batch.y)
@@ -89,7 +77,6 @@ class LightningLogisticRegression(pl.LightningModule):
         self.train_acc.reset()
         self.train_bacc.reset()
 
-    # Validation methods
     def validation_step(self, batch, _):
         logits = self(batch)
         loss = self.criterion(logits, batch.y)
@@ -103,7 +90,6 @@ class LightningLogisticRegression(pl.LightningModule):
         self.val_acc.reset()
         self.val_bacc.reset()
 
-    # Test methods
     def on_test_epoch_start(self):
         self.test_logits.clear()
         self.test_labels.clear()
@@ -144,7 +130,6 @@ class LightningLogisticRegression(pl.LightningModule):
             save_report_path=str(results_dir / "classification_report.json"),
         )
 
-    # Optimizer configuration
     def configure_optimizers(self):
         lr = float(getattr(self.hparams, 'lr', 1e-3))
         wd = float(getattr(self.hparams, 'wd', 1e-3))

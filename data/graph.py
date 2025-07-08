@@ -5,16 +5,7 @@ from tqdm.auto import tqdm
 
 def add_edge_list(data_list, tsh: Optional[float] = None, top: float = 0.10, verbose: bool = True):
     """
-    Add an edge_index to each Data object in data_list by thresholding its correlation matrix.
-
-    Args:
-        data_list (list): List of Data objects with attribute 'x' as correlation matrix.
-        tsh (float, optional): Correlation threshold for hard thresholding. If None, use top-k.
-        top (float): Proportion of top edges to keep if tsh is None.
-        verbose (bool): Whether to show a progress bar.
-
-    Returns:
-        list: Data objects with edge_index attribute added.
+    Add an edge_index to each Data object in data_list by thresholding its correlation matrix
     """
     @lru_cache(maxsize=None)
     def _get_tril_indices(n, device):

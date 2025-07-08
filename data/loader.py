@@ -7,29 +7,9 @@ import random
 import numpy as np
 from pathlib import Path
 
-def _cache_file(
-    raw_path: str,
-    cache_root: str,
-    train_ratio: float,
-    val_ratio: float,
-    test_ratio: float,
-    augment_strategy: Optional[str],
-    augment_proportion: Optional[float],
-) -> str:
+def _cache_file(raw_path: str,cache_root: str,train_ratio: float,val_ratio: float,test_ratio: float,augment_strategy: Optional[str],augment_proportion: Optional[float]) -> str:
     """
-    Build a unique cache filename based on key hyper-parameters for each (split, augmentation) setup.
-
-    Args:
-        raw_path (str): Path to raw data file.
-        cache_root (str): Directory for cache files.
-        train_ratio (float): Training split ratio.
-        val_ratio (float): Validation split ratio.
-        test_ratio (float): Test split ratio.
-        augment_strategy (str, optional): Augmentation strategy name.
-        augment_proportion (float, optional): Proportion for augmentation.
-
-    Returns:
-        str: Path to the cache file.
+    Build a unique cache filename based on key hyper-parameters for each (split, augmentation) setup
     """
     os.makedirs(cache_root, exist_ok=True)
     key = f"{os.path.basename(raw_path)}_{train_ratio}_{val_ratio}_{test_ratio}_" \
@@ -46,7 +26,7 @@ def load_data(
     test_ratio: float = 0.10,
     augment_strategy: Optional[str] = None,
     augment_proportion: Optional[float] = None,
-    cache_root: str = "/scratch/midway3/tcastellani/sleepstages",
+    cache_root: str = "/cache",
 ) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, torch.Tensor]]:
     if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
         raise ValueError("train + val + test must sum to 1.0")
@@ -107,50 +87,3 @@ def load_data(
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=workers)
 
     return train_loader, val_loader, test_loader, results
-
-def load_temporal_data(data_directory, batch_size, num_workers, train_ratio=0.6, val_ratio=0.2, test_ratio=0.2):
-    """
-    Split temporal data and create DataLoaders for train, validation, and test sets.
-
-    Args:
-        data_directory (str): Directory containing temporal data files.
-        batch_size (int): Batch size for DataLoaders.
-        num_workers (int): Number of worker processes.
-        train_ratio (float): Training split ratio.
-        val_ratio (float): Validation split ratio.
-        test_ratio (float): Test split ratio.
-
-    Returns:
-        tuple: DataLoaders for train, validation, and test sets.
-    """
-    train_data_dicts, val_data_dicts, test_data_dicts = temporal_splits(
-        data_directory, train_ratio, val_ratio, test_ratio
-    )
-
-    train_dataset = [item['loader'] for item in train_data_dicts]
-    val_dataset = [item['loader'] for item in val_data_dicts]
-    test_dataset = [item['loader'] for item in test_data_dicts]
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        persistent_workers=True if num_workers > 0 else False
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        persistent_workers=True if num_workers > 0 else False
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        persistent_workers=True if num_workers > 0 else False
-    )
-
-    return train_loader, val_loader, test_loader

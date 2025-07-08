@@ -8,10 +8,6 @@ from static_models.utils import evaluate_classification
 
 
 class LightningMLP(pl.LightningModule):
-    """
-    Fully connected baseline with a configurable hidden‐layer list,
-    e.g. hidden_dims=[128, 64].
-    """
 
     def __init__(
         self,
@@ -27,11 +23,9 @@ class LightningMLP(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # Feature flattening layer
         self.flatten = LowerTriFlattenBatch(input_dim, self_conv=self_conv)
         in_features = input_dim * (input_dim - 1) // 2
 
-        # MLP classifier head
         layers: list[nn.Module] = []
         for h in hidden_dims:
             layers += [nn.Linear(in_features, h), nn.ReLU(), nn.Dropout(0.5)]
@@ -39,18 +33,16 @@ class LightningMLP(pl.LightningModule):
         layers.append(nn.Linear(in_features, num_classes))
         self.mlp = nn.Sequential(*layers)
 
-        # Loss function
         if loss_type == "weighted_cross_entropy":
             if class_weights is None:
                 raise ValueError("class_weights must be provided for weighted_cross_entropy")
             self.register_buffer("class_weights", class_weights)
-            self.criterion = nn.CrossEntropyLoss(weight=self.class_weights)
+            self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         elif loss_type == "cross_entropy":
             self.criterion = nn.CrossEntropyLoss()
         else:
             raise ValueError(f"Unsupported loss_type: {loss_type}")
 
-        # Performance metrics
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.val_wacc   = MulticlassAccuracy(num_classes=num_classes, average="weighted")
         self.test_wacc  = MulticlassAccuracy(num_classes=num_classes, average="weighted")
@@ -66,7 +58,6 @@ class LightningMLP(pl.LightningModule):
         self.test_logits: list[torch.Tensor] = []
         self.test_labels: list[torch.Tensor] = []
 
-    # Forward pass
     def forward(self, data):
         z = self.flatten(data)
         return self.mlp(z)

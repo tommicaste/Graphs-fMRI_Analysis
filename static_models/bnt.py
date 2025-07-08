@@ -130,30 +130,25 @@ class BNT_Lightning(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # --- BNT Core Architecture ---
-        # Transformer Encoder Layers
         self.transformer_encoders = nn.ModuleList([
             InterpretableTransformerEncoder(
                 d_model=input_dim,
                 nhead=n_heads,
                 dim_feedforward=d_ff,
                 dropout=dropout,
-                batch_first=True # Important for processing (batch, nodes, features)
+                batch_first=True
             ) for _ in range(n_layers)
         ])
 
-        # OCREAD Pooling Layer
         self.pooling = ClusterAssignment(
             cluster_number=n_clusters,
             embedding_dimension=input_dim
         )
         
-        # Final Classifier
         self.mlp = nn.Sequential(
             nn.LayerNorm(n_clusters * input_dim),
             nn.Linear(n_clusters * input_dim, num_classes)
         )
-        # ---------------------------
         
         self.criterion = self._configure_loss()
         self.train_wacc = MulticlassAccuracy(num_classes=num_classes, average="weighted")
@@ -181,9 +176,8 @@ class BNT_Lightning(pl.LightningModule):
             raise ValueError(f"Unsupported loss_type: {loss_type}")
 
     def forward(self, data):
-        x = data.x  # (total_nodes, feature_dim) or (B, N, D)
+        x = data.x
 
-        # If x is 2-D (B*N, D) from a PyG Batch, reshape to (B, N, D)
         if x.dim() == 2:
             B = getattr(data, "num_graphs", None)
             if B is None:
@@ -191,23 +185,16 @@ class BNT_Lightning(pl.LightningModule):
             N = x.size(0) // B
             x = x.view(B, N, -1)
 
-        # ─── Transformer Encoder ───
         for encoder in self.transformer_encoders:
             x = encoder(x)
 
-        # ─── OCREAD Pooling ───
-        # x: (B, N, D) → assignment_probs: (B, N, n_clusters)
         assignment_probs = self.pooling(x)
 
-        # Transpose to (B, n_clusters, N) for batch matrix multiplication
         assignment_probs_t = assignment_probs.transpose(1, 2)
 
-        # Aggregate features: Z_G = P^T · Z_L
-        # (B, n_clusters, N) @ (B, N, D) → (B, n_clusters, D)
         graph_embedding = assignment_probs_t @ x
 
-        # ─── Classification ───
-        flattened_embedding = graph_embedding.flatten(start_dim=1)  # (B, n_clusters * D)
+        flattened_embedding = graph_embedding.flatten(start_dim=1)
         logits = self.mlp(flattened_embedding)
         return logits
 

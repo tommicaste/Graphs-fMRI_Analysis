@@ -14,15 +14,6 @@ def split_patient(data_list,
     """
     Greedy stratified group split by patient, preserving class proportions and avoiding patient overlap.
     Falls back to stratified random split if patient identifiers are missing.
-
-    Args:
-        data_list (list): List of Data objects.
-        train_ratio (float): Training split ratio.
-        val_ratio (float): Validation split ratio.
-        test_ratio (float): Test split ratio.
-
-    Returns:
-        list: Data objects with 'split' field in metadata.
     """
 
     assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
@@ -95,57 +86,3 @@ def split_patient(data_list,
         else:
             d.metadata["split"] = assignment[d.metadata["sample"]]
     return data_list
-
-def temporal_splits(data_directory, train_ratio=0.6, val_ratio=0.2, test_ratio=0.2):
-    """
-    Performs a greedy, stratified, group-by-patient split of temporal data.
-
-    Args:
-        data_directory (str): Directory containing temporal data files.
-        train_ratio (float): Training split ratio.
-        val_ratio (float): Validation split ratio.
-        test_ratio (float): Test split ratio.
-
-    Returns:
-        tuple: Lists of dictionaries for train, val, and test splits.
-    """
-    assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, "Ratios must sum to 1.0"
-    patient_data = defaultdict(list)
-    patient_class_counts = defaultdict(lambda: defaultdict(int))
-    all_class_indices = set()
-    for file_path in Path(data_directory).glob('*.pt'):
-        for item in torch.load(file_path):
-            patient_id = item['id'].split('_')[0]
-            patient_data[patient_id].append(item)
-            for cls, count in item['class_counts'].items():
-                patient_class_counts[patient_id][cls] += count
-                all_class_indices.add(cls)
-    num_classes = max(all_class_indices) + 1 if all_class_indices else 0
-    patient_ids = list(patient_data.keys())
-    random.shuffle(patient_ids)
-    patient_counts_np = {
-        pid: np.array([counts.get(i, 0) for i in range(num_classes)])
-        for pid, counts in patient_class_counts.items()
-    }
-    total_per_class = np.sum(list(patient_counts_np.values()), axis=0)
-    targets = {
-        'train': total_per_class * train_ratio,
-        'val': total_per_class * val_ratio,
-        'test': total_per_class * test_ratio,
-    }
-    running_counts = {k: np.zeros(num_classes) for k in targets}
-    patient_assignment = {}
-    for pid in patient_ids:
-        deficits = {k: targets[k] - running_counts[k] for k in running_counts}
-        scores = {k: np.dot(deficits[k], patient_counts_np[pid]) for k in deficits}
-        best_split = max(scores, key=lambda k: scores[k])
-        patient_assignment[pid] = best_split
-        running_counts[best_split] += patient_counts_np[pid]
-    temp_splits = defaultdict(list)
-    for pid, assigned_split in patient_assignment.items():
-        temp_splits[assigned_split].extend(patient_data[pid])
-    train_data = [{'id': item['id'], 'loader': item['loader']} for item in temp_splits['train']]
-    val_data = [{'id': item['id'], 'loader': item['loader']} for item in temp_splits['val']]
-    test_data = [{'id': item['id'], 'loader': item['loader']} for item in temp_splits['test']]
-    return train_data, val_data, test_data
-

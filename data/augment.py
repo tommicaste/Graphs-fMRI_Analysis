@@ -9,14 +9,7 @@ from tqdm import tqdm
 
 def augment_upsample(data_list, proportion=0.5):
     """
-    Upsample training split to reach a target proportion of the largest class for each underrepresented class.
-
-    Args:
-        data_list (list): List of Data objects.
-        proportion (float): Proportion of the largest class to upsample to (0 < proportion <= 1).
-
-    Returns:
-        list: Original and synthetic upsampled Data objects.
+    Upsample training split to reach a target proportion of the largest class for each underrepresented class
     """
     assert 0 < proportion <= 1
 
@@ -47,21 +40,9 @@ def augment_upsample(data_list, proportion=0.5):
 
     return data_list + augmented
 
-def augment_interpolate(
-    data_list,
-    proportion: float = 1.0,
-    verbose: bool = True,
-):
+def augment_interpolate(data_list, proportion: float = 1.0, verbose: bool = True):
     """
     Interpolate between consecutive training samples to balance classes by a target proportion of the largest class.
-
-    Args:
-        data_list (list): List of Data objects.
-        proportion (float): Proportion of the largest class to interpolate to (0 < proportion <= 1).
-        verbose (bool): Whether to show progress bars.
-
-    Returns:
-        list: Original and synthetic interpolated Data objects.
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
@@ -81,7 +62,7 @@ def augment_interpolate(
     targets = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # Precompute patient-wise ordered gaps
+    
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -107,7 +88,7 @@ def augment_interpolate(
     synthetic_data = []
     outer_iter = tqdm(
         synth_needs.items(),
-        desc="⏩ classes",
+        desc="Augmenting classes",
         disable=not verbose,
         leave=False,
     )
@@ -155,21 +136,9 @@ def augment_interpolate(
 
     return data_list + synthetic_data
 
-def augment_geodesic(
-    data_list,
-    proportion: float = 1.0,
-    verbose: bool = True,
-):
+def augment_geodesic(data_list,proportion: float = 1.0, verbose: bool = True):
     """
     Interpolate geodetically between consecutive training samples to balance classes by a target proportion of the largest class.
-
-    Args:
-        data_list (list): List of Data objects.
-        proportion (float): Proportion of the largest class to interpolate to (0 < proportion <= 1).
-        verbose (bool): Whether to show progress bars.
-
-    Returns:
-        list: Original and synthetic geodesically interpolated Data objects.
     """
     assert 0 < proportion <= 1, "proportion must be in (0,1]"
 
@@ -188,7 +157,7 @@ def augment_geodesic(
     targets = {cls: int(np.ceil(proportion * max_count)) for cls in real_counts}
     synth_needs = {cls: max(0, targets[cls] - real_counts[cls]) for cls in real_counts}
 
-    # Precompute patient-wise ordered gaps
+
     gaps_per_class = {}
     for cls, examples in train_by_class.items():
         by_patient = defaultdict(list)
@@ -214,7 +183,6 @@ def augment_geodesic(
     def geodesic(C1: torch.Tensor, C2: torch.Tensor, t: float) -> torch.Tensor:
         """
         Calculates the geodesic C(t) on the manifold of PSD matrices.
-        Formula: C(t) = C1^1/2 * (C1^-1/2 * C2 * C1^-1/2)^t * C1^1/2
         """
         eigvals1, eigvecs1 = torch.linalg.eigh(C1)
         eigvals1.clamp_(min=1e-8)
@@ -263,12 +231,12 @@ def augment_geodesic(
             alphas = torch.linspace(1, n_interp, n_interp, device=d1.x.device) / (n_interp + 1)
 
             for alpha in alphas:
-                # Calculate the geodetically interpolated matrix
+                
                 C_interp = geodesic(d1.x, d2.x, alpha.item())
                 
                 new_d = Data(
                     y=d1.y.clone(),
-                    # Project to ensure a perfect correlation matrix for robustness
+                    
                     x=project_to_psd(C_interp),
                     metadata={
                         **d1.metadata,
