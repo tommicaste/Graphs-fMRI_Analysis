@@ -1,4 +1,4 @@
-# Graph based Sleep Stage Classification
+# Graph based fMRI Classification
 
 This repository provides a PyTorch Lightning pipeline for classifying sleep stages from brain-network data formatted as fMRI BOLD correlation matrices where nodes correspond to ROIs. 
 
