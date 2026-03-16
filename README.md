@@ -47,8 +47,8 @@ The code handles patient-aware splitting, class-imbalance augmentation, and full
 ## Installation
 
 ```bash
-git clone https://github.com/tommicaste/Graphs-sleepstages.git
-cd Graphs-sleepstages
+git clone https://github.com/tommicaste/Graphs-fMRI_Analysis.git
+cd Graphs-fMRI_Analysis
 
 pip install -r requirements.txt
 
