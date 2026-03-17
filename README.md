@@ -59,11 +59,11 @@ cd Graphs-fMRI_Analysis
 uv venv
 source .venv/bin/activate
 
-# For GPU training:
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126
+# For GPU training
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126 --index-strategy unsafe-best-match
 
 # For CPU training only:
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
 
 uv pip install -e .
 ```
