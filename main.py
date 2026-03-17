@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import importlib
-import random
 import sys
 from pathlib import Path
 from typing import Any, Dict
 
-import numpy as np
 import pytorch_lightning as pl
-import torch
 import yaml
 from static_models.pipeline import train_model
 
@@ -51,9 +48,6 @@ def main():
 
     seed = cfg.get("seed", 123)
     pl.seed_everything(seed, workers=True)
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
 
     data_cfg = cfg["data"]
     data_path = data_cfg["path"]

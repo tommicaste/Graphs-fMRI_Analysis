@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import random
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import List, Optional, Union
 
-import numpy as np
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -122,9 +120,6 @@ def train_model(
 
     
     pl.seed_everything(seed, workers=True)
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
 
     
     train_loader, val_loader, test_loader, weight_dict = load_data(

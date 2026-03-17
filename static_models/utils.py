@@ -50,12 +50,13 @@ def evaluate_classification(
         print(classification_report(y_true, y_pred, zero_division='0'))
     if save_report_path:
         os.makedirs(os.path.dirname(save_report_path), exist_ok=True)
-        json.dump({
-            "accuracy"              : acc,
-            "balanced_accuracy"     : bacc,
-            "confusion_matrix_share": cm_share.tolist(),
-            "classification_report" : rep_dict
-        }, open(save_report_path, "w"), indent=2)
+        with open(save_report_path, "w") as f:
+            json.dump({
+                "accuracy"              : acc,
+                "balanced_accuracy"     : bacc,
+                "confusion_matrix_share": cm_share.tolist(),
+                "classification_report" : rep_dict
+            }, f, indent=2)
     return {
         "accuracy"         : acc,
         "balanced_accuracy": bacc

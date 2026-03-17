@@ -1,0 +1,108 @@
+# Smoke-test config
+
+seed: 42
+save_dir: runs_test
+
+data:
+  path: tests/fake_dataset.pt
+  batch_size: 8
+  num_workers: 0
+  split: [0.6, 0.2, 0.2]
+  augment:
+    strategy: null
+    proportion: null
+  edge:
+    tsh: 0
+    top: null
+
+models:
+
+  - name: test_gnn
+    architecture: gnn
+    params:
+      input_dim: 26
+      hidden_channels: 16
+      num_layers: 1
+      num_classes: 4
+      mlp_hidden: [16]
+      gnn_layer: SAGEConv
+      pooling_fn: mean
+      loss_type: cross_entropy
+    trainer:
+      max_epochs: 2
+      accelerator: cpu
+      devices: 1
+      log_every_n_steps: 1
+
+  - name: test_weighted_gnn
+    architecture: weighted_gnn
+    params:
+      input_dim: 26
+      hidden_channels: 16
+      num_layers: 1
+      num_classes: 4
+      mlp_hidden: [16]
+      gnn_layer: GCNConv
+      feature_type: corr
+      loss_type: cross_entropy
+    trainer:
+      max_epochs: 2
+      accelerator: cpu
+      devices: 1
+      log_every_n_steps: 1
+
+  - name: test_neurograph
+    architecture: neurograph
+    params:
+      input_dim: 26
+      hidden_channels: 16
+      num_layers: 1
+      num_classes: 4
+      hidden: 32
+      gnn_layer: SAGEConv
+      loss_type: cross_entropy
+    trainer:
+      max_epochs: 2
+      accelerator: cpu
+      devices: 1
+      log_every_n_steps: 1
+
+  - name: test_bnt
+    architecture: bnt
+    params:
+      input_dim: 26
+      num_classes: 4
+      n_layers: 1
+      n_heads: 2
+      n_clusters: 4
+    trainer:
+      max_epochs: 2
+      accelerator: cpu
+      devices: 1
+      log_every_n_steps: 1
+
+  - name: test_mlp
+    architecture: mlp
+    params:
+      input_dim: 26
+      num_classes: 4
+      hidden_dims: [32]
+      self_conv: false
+    trainer:
+      max_epochs: 2
+      accelerator: cpu
+      devices: 1
+      log_every_n_steps: 1
+
+  - name: test_logistic
+    architecture: logistic
+    params:
+      input_dim: 26
+      num_classes: 4
+      self_conv: false
+      self_conv_adj: false
+    trainer:
+      max_epochs: 2
+      accelerator: cpu
+      devices: 1
+      log_every_n_steps: 1

@@ -4,7 +4,7 @@ from collections import defaultdict
 from pathlib import Path
 import torch
 from typing import List, Dict, Tuple, Optional
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.data import Data
 
 
 def split_patient(data_list,
