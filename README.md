@@ -40,7 +40,7 @@ The code handles patient-aware splitting, class-imbalance augmentation, and full
 │   └── utils.py
 ├── main.py                  # training entry point
 ├── requirements.txt         # Python dependencies
-├── setup.py                 # package metadata
+├── pyproject.toml           # package metadata
 └── README.md
 ```
 
@@ -56,17 +56,26 @@ conda install uv
 git clone https://github.com/tommicaste/Graphs-fMRI_Analysis.git
 cd Graphs-fMRI_Analysis
 
-uv venv
+uv venv --python 3.10
 source .venv/bin/activate
 
-# For GPU training
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126 --index-strategy unsafe-best-match
+# 1. Install PyTorch (pick your CUDA version, or use "cpu")
+uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --index-strategy unsafe-best-match
 
-# For CPU training only:
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
+# 2. Install PyG C++ extensions (prebuilt wheels matched to your torch + CUDA)
+uv pip install torch-scatter torch-sparse torch-cluster torch-spline-conv \
+  -f https://data.pyg.org/whl/torch-2.6.0+cu126.html
 
+# 3. Install remaining dependencies
+uv pip install numpy matplotlib scikit-learn tqdm PyYAML torchmetrics torch-geometric==2.6.1
+
+# 4. Install the project
 uv pip install -e .
 ```
+
+For **CPU-only** training, replace `cu126` with `cpu` in steps 1 and 2.
 
 ## Usage
 
