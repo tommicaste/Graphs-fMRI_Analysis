@@ -46,13 +46,26 @@ The code handles patient-aware splitting, class-imbalance augmentation, and full
 
 ## Installation
 
+We recommend using `uv` for fast, reliable dependency management.
+
+```bash
+conda install uv
+```
+
 ```bash
 git clone https://github.com/tommicaste/Graphs-fMRI_Analysis.git
 cd Graphs-fMRI_Analysis
 
-pip install -r requirements.txt
+uv venv
+source .venv/bin/activate
 
-pip install -e .
+# For GPU training:
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126
+
+# For CPU training only:
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+uv pip install -e .
 ```
 
 ## Usage
